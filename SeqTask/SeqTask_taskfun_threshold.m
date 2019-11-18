@@ -3,7 +3,6 @@ function [v_inputtrain_T, m_targettrain_T, did_change_train_data, net, all_simda
 
 did_change_train_data = false;
 if do_inputs
-    rng(1)
     for i = 1:simparams.numTrials   
         v_inputtrain_T{i} = [];
         for tr = 1:simparams.batchSize
@@ -25,13 +24,15 @@ if do_inputs
                 tCourse(targs(j),simparams.preTime + (j-1)*10 + 1 : simparams.preTime + j*10) = 1;
             end
             v_inputtrain_T{i} = cat(2, v_inputtrain_T{i}, tCourse);
+            net.taskData{i,tr}.noGo = noGo;
+            net.taskData{i,tr}.targs = targs;
+            net.taskData{i,tr}.memLength = memLength;
         end
     end
     did_change_train_data = true;
 end
 
 if do_targets
-    rng(1)
     for i = 1:length(v_inputtrain_T)
         try
             out = simparams.forwardPass{i}{3};
@@ -41,19 +42,11 @@ if do_targets
         m_targettrain_T{i} = out;
         trialStart = 1;
         for tr = 1:simparams.batchSize
-            noGo = false;
-            if rand < simparams.noGoFreq
-                noGo = true;
-            end
-            goalTargs = randsample(5,simparams.numTargets,false);     
+            noGo = net.taskData{i,tr}.noGo;
+            goalTargs = net.taskData{i,tr}.targs;
             cueLength = simparams.preTime + simparams.numTargets*10;
-            memLength = simparams.memRange(1);
-            if simparams.memRange(2) > 0
-                memLength = memLength + randsample(simparams.memRange(2),1);
-            end
-
+            memLength = net.taskData{i,tr}.memLength;
             m_targettrain_T{i}(:,trialStart:trialStart+cueLength+memLength) = 0;
-            
             targCount = 1;
             thisTarg = goalTargs(targCount);
             pressedTargs = []; penaltyTargs = [];
@@ -102,8 +95,4 @@ if do_targets
         %m_targettrain_T{i}(m_targettrain_T{i} < 0) = 0;
     end
 end
-
-
-
-
 end

@@ -62,7 +62,7 @@ cmap = [lines(5); 0 0 0];
 
 close all
 figure(1)
-clf
+set(gcf, 'Position', [1 595 711 390])
 for i = 1:4
     subplot(3,4,i)
     if i == 1
@@ -188,8 +188,7 @@ disp(['Number of FPs: ' num2str(length(FPs))])
 cueSpeed = cell2mat({FPs.FPVal});
 [~, takeInd] = min(cueSpeed);
 figure(3)
-clf
-set(gcf, 'Position', [50 50 275 220], 'PaperPositionMode', 'Auto')
+set(gcf, 'Position', [717 765 275 220], 'PaperPositionMode', 'Auto')
 useInd = takeInd;
 xList = -1.5:0.5:0;
 xName = {'67','100','200','Inf'};
@@ -210,8 +209,7 @@ plotFPs = FPs(takeInd);
 %disp(['fixed point speeds: ' num2str(FPs{1}(1).FPVal) ' ' num2str(FPs{2}(1).FPVal)])
 
 figure(4)
-set(gcf, 'Position', [1290 550 600 420], 'PaperPositionMode', 'Auto')
-clf
+set(gcf, 'Position', [998 565 600 420], 'PaperPositionMode', 'Auto')
 xD = 3;
 data = nonLin(x);
 preLabel = 'PC ';
@@ -318,15 +316,16 @@ if xD == 3
 end
 
 
-
 pc = reshape(savePC', [size(savePC,2) length(thisPlotRange) size(x,3)]);
 figure(5)
-set(gcf, 'Position', [1290 550 600 420], 'PaperPositionMode', 'Auto')
-clf
+set(gcf, 'Position', [1 57 988 464], 'PaperPositionMode', 'Auto')
 count = 1;
-    for tar = 1:5
-        for dim = 1:5
+for tar = 1:5
+    for dim = 1:5
         subplot(5,5,count)
+        if tar == 1
+            title(['PC ' num2str(dim) ', var expl: ' num2str(vData(dim))])
+        end
         hold on
         for cond = 1:size(pc,3)
             plot(pc(dim,:,cond), 'Color', cmapTrial(cond,:,tar))
