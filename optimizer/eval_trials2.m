@@ -59,7 +59,7 @@ switch ver_string
         end
         %disp(['ncore guess:  ', num2str(ncore_guess)]);
     otherwise        
-        ncore_guess = matlabpool('size'); %#ok<DPOOL>
+        ncore_guess = 8; %matlabpool('size'); %#ok<DPOOL> %% HACKED 7.04.2016
 end
 
 if ncore_guess == 0

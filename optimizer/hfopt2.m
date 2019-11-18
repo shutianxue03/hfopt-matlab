@@ -192,6 +192,11 @@ nhfiters_to_reset_matlabpool = Inf;
 
 all_simdata = [];
 
+%% NEW %%
+maintainDale = false;
+err_tol = Inf;
+min_iter = 0;
+
 optargin = size(varargin,2);
 for i = 1:2:optargin			% perhaps a params structure might be appropriate here.  Haha.
     switch varargin{i}
@@ -400,7 +405,16 @@ for i = 1:2:optargin			% perhaps a params structure might be appropriate here.  
         case 'dowrappersprecon'
             % Don't use this.
             assert ( false, 'Stopped');
-            do_wrappers_cg_afun = varargin{i+1};            
+            do_wrappers_cg_afun = varargin{i+1};
+            
+        %% NEW %%
+        case 'maintainDale'
+            maintainDale = varargin{i+1};
+        case 'errtol'
+            err_tol = varargin{i+1};
+        case 'miniter'
+            min_iter = varargin{i+1};
+            
         otherwise
             assert ( false, [' Variable argument ' varargin{i} ' not recognized.']);
     end
@@ -472,7 +486,7 @@ elseif isa(v_inputtrain_T_start, 'function_handle')
     end
 end
 
-if ~isempty(v_inputtrain_T);
+if ~isempty(v_inputtrain_T)
     [~,T] = size(v_inputtrain_T);
 elseif ~isempty(m_targettrain_T)
     [~,T] = size(m_targettrain_T);
@@ -748,7 +762,7 @@ objfun_cg_test_allobjs = Inf;
 % objfun_cg_forward = Inf;
 % objfun_cg_forward_other = Inf;
 objfun_ls_train_min_allobjs = Inf; %#ok<NASGU>
-objfun_train_allobjs = Inf;
+objfun_train_allobjs = [10e10 10e10 10e10 10e10];
 
 grad_norm = Inf;
 rho = NaN;
@@ -831,8 +845,8 @@ while go
     %%% Hack    
     if ~isinf(nhfiters_to_reset_matlabpool) && mod(hf_iter, nhfiters_to_reset_matlabpool) == 1
         warning('hacking the matlabpool memory leak by reseting');
-        matlabpool('close');
-        matlabpool('local');
+        delete(gcp('nocreate'))
+        parpool('local');
     end
     
     if ( hf_iter > max_hf_iters )
@@ -888,7 +902,7 @@ while go
         % revaluated because the network has changed.  But up until that point, everybody is seeing the same single forward pass instantiation.
         package = eval_network(net, v_inputtrain_T, m_targettrain_T, TvV_T, all_train_trial_idxs, all_optional_args, all_simdata, 'doparallel', do_parallel_objfun, 'dowrappers', do_wrappers_objfun);
         forward_pass_T = package{1};
-        all_simdata = package{end};
+        all_simdata = package{end}; simparams.forwardPass = forward_pass_T;
         clear package;
         
         % Now compute the targets, simdata will be updated from the forward run of the network just above.
@@ -970,6 +984,9 @@ while go
             otherwise
                 assert ( false, ['Sample style: ' sample_style ' not supported.']);
         end
+        %%
+        simparams.forwardPass = forward_pass_s;
+        %%
     end
     
     
@@ -1266,7 +1283,19 @@ while go
                 end
             end
         end
-        net.theta = net.theta + cgood*good_cg_incr;
+        
+        %% NEW %%
+        dNet = cgood*good_cg_incr;
+        if maintainDale        
+            [n_Wru_vPrime, n_Wrr_nPrime, m_Wzr_nPrime, n_x0_cPrime, n_bx_1Prime, m_bz_1Prime] = unpackRNN(net, dNet);
+            [n_Wru_vOrig, n_Wrr_nOrig, m_Wzr_nOrig, ~, ~, ~] = unpackRNN(net, net.theta);
+            n_Wrr_nPrime(n_Wrr_nPrime+n_Wrr_nOrig > 0 ~= repmat(net.ident, [size(n_Wrr_nOrig,1) 1])) = 0;
+            %n_Wru_vPrime(n_Wru_vOrig == 0) = 0;
+            %m_Wzr_nPrime(m_Wzr_nOrig == 0) = 0;
+            dNet = packRNN(net, n_Wru_vPrime, n_Wrr_nPrime, m_Wzr_nPrime, n_x0_cPrime, n_bx_1Prime, m_bz_1Prime);
+        end
+        
+        net.theta = net.theta + dNet;
         
         objfun_last = objfun;
         if strcmp(input_type, 'function')
@@ -1462,23 +1491,43 @@ while go
         exit_flag = 1;
         go = 0;
     end
+
     
-
+    
     % How is this different than looking at the magnitude of the gradient? x for fminunc is my theta.
-%     if ( tolx_condition )
-%         stop_string = ['Stopping because change in x was smaller than the tolx tolerance.'];
-%         error_flag = 2;
-%         go = 0;
-%     end
-
+    %     if ( tolx_condition )
+    %         stop_string = ['Stopping because change in x was smaller than the tolx tolerance.'];
+    %         error_flag = 2;
+    %         go = 0;
+    %     end
+    
+    for cond = 1:length(forward_pass_T)
+        data = forward_pass_T{cond};
+        vmask = ~isnan(m_targettrain_T{cond});
+        tempErr(cond) = sum(sum((m_targettrain_T{cond}(vmask) - data{3}(vmask)).^2));
+        tempTotal(cond) = sum(sum(m_targettrain_T{cond}(vmask).^2));
+    end
+    quit_err = tempErr ./ tempTotal;
+    if display_level > 0
+        disp(['Current error is: ' num2str(mean(quit_err))])
+    end
+    %  if (mean(quit_err) < err_tol) & (hf_iter >= min_iter)
+    %      stop_string = 'Error is low enough!';
+    %      exit_flag = 1;
+    %      go = 0;
+    %  end
+    
+    
+    
+    
     % Absolute stopping condition.  Note I don't have a relative stopping condition for the HF iterations.
-    if ( abs(objfun - objfun_last) < objfun_tol )
+    if ( abs(objfun - objfun_last) < objfun_tol ) && (hf_iter >= min_iter)
         stop_string = ['Stopping because difference in objective function fell below: ' num2str(objfun_tol)];
         exit_flag = 3;  % fminunc: Change in the objective function value was less than the TolFun tolerance.
         go = 0;
     end
     
-    if ( objfun < objfun_min )
+    if ( objfun < objfun_min ) && (hf_iter >= min_iter) && (mean(quit_err) < err_tol)
         stop_string = ['Stopping because objective function fell below: ' num2str(objfun_min)];
         exit_flag = -3;  % fminunc: Objective function at current iteration went below ObjectiveLimit.
         go = 0;
@@ -1519,8 +1568,6 @@ while go
             disp(['Elapsed time: ' num2str(hf_iter_time) ' seconds.']);
         end
     end
-    
-    
         
     % Optional plotting
     plot_stats = [];
@@ -1531,13 +1578,19 @@ while go
     end
     
     
-    
+ 
+
     % Save statistics
     all_grad_norms = [all_grad_norms grad_norm];
     all_lambdas = [all_lambdas lambda]; %#ok<*AGROW>
     all_rhos = [all_rhos rho];
-    all_objfun_trains = [all_objfun_trains objfun_train];    
-    all_objfun_trains_allobjs = [ all_objfun_trains_allobjs objfun_train_allobjs(:)];
+    all_objfun_trains = [all_objfun_trains objfun_train];  
+    try
+        all_objfun_trains_allobjs = [all_objfun_trains_allobjs objfun_train_allobjs(:)];
+    catch
+        disp('objfun ERROR')
+        all_objfun_trains_allobjs = objfun_train_allobjs(:);
+    end
     all_objfun_tests = [all_objfun_tests objfun_test];
     all_objfun_tests_allobjs = [all_objfun_tests_allobjs objfun_test_allobjs(:)];
     all_hf_iter_times = [all_hf_iter_times hf_iter_time];
@@ -1622,12 +1675,20 @@ while go
         if do_plot_all_objectives
             figure(f2);
             subplot (1,2,1);
+            cmap = lines(4);
             for pidx = piters
-                plot(pidx, all_objfun_trains_allobjs(:,pidx), 'o', 'linewidth', 4); hold on; axis tight;
+                for qqq = 1:4
+                    plot(pidx, all_objfun_trains_allobjs(qqq,pidx), 'o', 'linewidth', 4, 'Color', cmap(qqq,:)); hold on; axis tight;
+                end
                 if do_validation
                     plot(pidx, all_objfun_tests_allobjs(:,pidx), 'x', 'linewidth', 4); axis tight;
                 end
             end
+            %%%
+            legend('Err','wc','Frob','Rate')
+            legend('boxoff')
+            
+            %%%
             hold off;
             subplot( 1, 2, 2);
             aotra_diff = diff(all_objfun_trains_allobjs(:,piters),1,2);

@@ -2,6 +2,7 @@ function varargout = rnn_hf_allfun2(net, v_u_t, m_target_t, wc, v, lambda, forwa
     training_vs_validation, trial_id, optional_params, simdata, ...
     do_return_network, do_return_L, do_return_L_grad, ...
     do_return_L_GaussNewton, do_return_preconditioner)
+
 % Written by David Sussillo (C) 2013
 %
 %function varargout = rnn_hf_allfun_trace2(net, v_u_t, m_target_t, wc, v, lambda, forward_pass, ...
@@ -361,6 +362,7 @@ if ( isempty(forward_pass) )
         n_nnoise_t = n_nnoise_t + n_addinput_t;
     end
     for t = 1:T
+     
         n_x_1 = (1.0-dt_o_tau)*n_x_1 + dt_o_tau*( n_Wu_t(:,t) + n_Wrr_n*n_r_1 + n_bx_1 + n_nnoise_t(:,t) );
         %n_r_1 = rec_trans_fun( n_x_1 );
         for p = 1:npools
@@ -370,6 +372,7 @@ if ( isempty(forward_pass) )
 
         n_x_t(:,t) = n_x_1;
         n_r_t(:,t) = n_r_1;
+  
     end
     
     n_dr_t = zeros(N,T);
@@ -437,6 +440,9 @@ if ( do_return_L )
         % are being modifed are subject to cost.
         % Note that there is nothing trial specific about this.  So it's computed over and over, and then divided by the number
         % of times it's computed.
+        
+        
+        
         L_l2weight = (wc/2.0)*sum((mod_mask .* cost_mask .* net.theta).^2);
         all_Ls(end+1) = L_l2weight;
         
@@ -468,6 +474,9 @@ if ( do_return_L )
         if do_firing_rate_mean_regularizer        
             % This is L = \lambda / (2 * N) \sum_i^N ( 1/T * \int_0^T r_i(t') dt' - \alpha)^2.            
             n_r_avg_1 = mean(n_r_t,2);
+            %% CHANGED TO SQUARES
+            %n_r_avg_1 = mean(n_r_t.^2,2);
+            %%
             n_error_in_avg_1 = fr_mean_reg_mask .* (n_r_avg_1 - fr_mean_reg_dv);
             L_fr_avg = (fr_mean_reg_weight/(2.0*N_fr_mean_reg)) * sum( n_error_in_avg_1.^2 );  % So this will penalize the average firing rate over time.
         end     
@@ -522,7 +531,7 @@ if ( do_return_L_grad )
     if ( net.hasCanonicalLink )
         m_dLdy_t(vmask) = m_z_t(vmask) - m_target_t(vmask);
     else
-        assert ( false, 'Double check this for the specific case.');
+       % assert ( false, 'Double check this for the specific case.');
         m_dLdy_t(vmask) = out_deriv_fun(m_z_t(vmask)) .* (m_z_t(vmask) - m_target_t(vmask));
     end
     m_dLdy_t = m_dLdy_t / TxM_vmasked;
@@ -567,6 +576,9 @@ if ( do_return_L_grad )
     if do_firing_rate_mean_regularizer
         ravg_factor = fr_mean_reg_weight / (N_fr_mean_reg * T);
         n_dLFRdr_avg_1 = ravg_factor * ((mean(n_r_t,2) - fr_mean_reg_dv) .* fr_mean_reg_mask);
+        %% CHANGED TO SQUARES
+        %n_dLFRdr_avg_1 = ravg_factor * ((mean(n_r_t.^2,2) - fr_mean_reg_dv) .* fr_mean_reg_mask);
+        %%
         n_dLextrasr_tp1(:,2:T+1) = n_dLextrasr_tp1(:,2:T+1) + repmat(n_dLFRdr_avg_1, 1, T);
     end    
     if do_firing_rate_var_regularizer
@@ -911,6 +923,9 @@ if ( do_return_L_GaussNewton )   % GN start
     if do_firing_rate_mean_regularizer
         ravg_factor = fr_mean_reg_weight / (N_fr_mean_reg * T);
         n_RdLFRdravg_1 = ravg_factor * (mean(n_Rr_t,2) .* fr_mean_reg_mask);
+        %% CHANGED TO SQUARES
+        %n_RdLFRdravg_1 = ravg_factor * (mean(n_Rr_t.^2,2) .* fr_mean_reg_mask);
+        %%
         n_RdLextrasr_tp1(:,2:T+1) = n_RdLextrasr_tp1(:,2:T+1) + repmat(n_RdLFRdravg_1,1,T);
     end    
     if do_firing_rate_var_regularizer
