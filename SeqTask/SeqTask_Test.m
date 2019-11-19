@@ -21,7 +21,7 @@ end
 [~, loadInd] = min(thisError);
 thisFile = listing(loadInd).name;
 
-load(thisFile, 'net')
+load([loadDir thisFile], 'net')
 disp(['Loaded: ' thisFile])
 
 simparams.forwardPass = [];
