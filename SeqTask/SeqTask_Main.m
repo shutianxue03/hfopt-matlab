@@ -15,13 +15,13 @@ simparams.plotfun = @SeqTask_hfopt_Plot;
 
 simparams.numTrials = 50; % Trials to simulate
 simparams.numTargets = 5; % Goal targets to simulate. Please stick to 5 for now.
-simparams.batchSize = 5; % How many trials to string together
+simparams.batchSize = 3; % How many trials to string together
 simparams.memRange = [50 100]; % Variability of memory period. Mem = memRange(1) + randuniform(memRange(2))
 simparams.preTime = 10; % Time before visual cues
 simparams.moveTime = 150; % Total movement time
 simparams.noGoFreq = 0.1; % Frequency of nogo trials
 
-simparams.N = 200; % Number of neurons
+simparams.N = 100; % Number of neurons
 simparams.B = simparams.numTargets; % Number of outputs
 simparams.I = simparams.numTargets + 1; % Number of inputs
 
@@ -29,8 +29,9 @@ simparams.I = simparams.numTargets + 1; % Number of inputs
 simparams.dt = 1;
 simparams.tau = 10;
 
-simparams.layer_types = {'linear', 'tanh', 'rectlinear'}; % input / hidden / output layer activation functions
-simparams.g = [1 1.5 1]; % spectral scaling of each layer
+simparams.layer_types = {'linear', 'recttanh', 'rectlinear'}; % input / hidden / output layer activation functions
+% if g is too large then the network can't handle very variable memory periods
+simparams.g = [1 1.1 1]; % spectral scaling of each layer
 simparams.obj_fun_type = 'sum-of-squares'; % type of error
 
 simparams.wc = 0; % cost on square of input and output weights
@@ -44,9 +45,9 @@ SeqTask_Train(simparams, doPlot)
 
 % LET'S VISUALIZE RESULTS
 % We'll look for trained networks based on how you named this batch (simparams.name)
-simparams.numTrials = 150;
+simparams.numTrials = 100;
 simparams.batchSize = 2; % Must use double trial mode for plotting purposes
-simparams.memRange = [50 0]; % Must use a fixed memory period for plotting purposes
+simparams.memRange = [80 0]; % Must use a fixed memory period for plotting purposes
 simparams.noGoFreq = 0.1;
 
 SeqTask_Test(simparams)
