@@ -13,15 +13,15 @@ simparams.taskfun = @SeqTask_taskfun_gaussian; % or @SeqTask_taskfun_threshold
 % Plotting function during training
 simparams.plotfun = @SeqTask_hfopt_Plot;
 
-simparams.numTrials = 50; % Trials to simulate
+simparams.numTrials = 25; % Trials to simulate
 simparams.numTargets = 5; % Goal targets to simulate. Please stick to 5 for now.
 simparams.batchSize = 3; % How many trials to string together
-simparams.memRange = [50 100]; % Variability of memory period. Mem = memRange(1) + randuniform(memRange(2))
+simparams.memRange = [10 90]; % Variability of memory period. Mem = memRange(1) + randuniform(memRange(2))
 simparams.preTime = 10; % Time before visual cues
-simparams.moveTime = 150; % Total movement time
+simparams.moveTime = 100; % Total movement time
 simparams.noGoFreq = 0.1; % Frequency of nogo trials
 
-simparams.N = 100; % Number of neurons
+simparams.N = 300; % Number of neurons
 simparams.B = simparams.numTargets; % Number of outputs
 simparams.I = simparams.numTargets + 1; % Number of inputs
 
