@@ -7,13 +7,15 @@ simparams = [];
 % Top directory for project
 simparams.baseDir = '/Users/jonathanamichaels/Desktop/jmichaels/Projects/ST';
 % Specific title of this run. Simulations will be saved their.
-simparams.name = 'Test';
+simparams.name = 'Test3';
+% How often to save a checkpoint of training
+simparams.saveEvery = 5;
 % Which task to run
 simparams.taskfun = @SeqTask_taskfun_gaussian; % or @SeqTask_taskfun_threshold
 % Plotting function during training
 simparams.plotfun = @SeqTask_hfopt_Plot;
 
-simparams.numTrials = 25; % Trials to simulate
+simparams.numTrials = 20; % Trials to simulate
 simparams.numTargets = 5; % Goal targets to simulate. Please stick to 5 for now.
 simparams.batchSize = 3; % How many trials to string together
 simparams.memRange = [10 90]; % Variability of memory period. Mem = memRange(1) + randuniform(memRange(2))
@@ -21,7 +23,7 @@ simparams.preTime = 10; % Time before visual cues
 simparams.moveTime = 100; % Total movement time
 simparams.noGoFreq = 0.1; % Frequency of nogo trials
 
-simparams.N = 300; % Number of neurons
+simparams.N = 100; % Number of neurons
 simparams.B = simparams.numTargets; % Number of outputs
 simparams.I = simparams.numTargets + 1; % Number of inputs
 
@@ -31,7 +33,7 @@ simparams.tau = 10;
 
 simparams.layer_types = {'linear', 'recttanh', 'rectlinear'}; % input / hidden / output layer activation functions
 % if g is too large then the network can't handle very variable memory periods
-simparams.g = [1 1.1 1]; % spectral scaling of each layer
+simparams.g = [1 1.2 1]; % spectral scaling of each layer
 simparams.obj_fun_type = 'sum-of-squares'; % type of error
 
 simparams.wc = 0; % cost on square of input and output weights

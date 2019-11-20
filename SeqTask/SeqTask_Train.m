@@ -28,10 +28,10 @@ net.wc = wc;
 
 [n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1] = unpackRNN(net, net.theta);
 
-m_bz_1 = randn(size(m_bz_1)) / 1e9;
-n_x0_c = randn(size(n_x0_c)) / 1e9;
-n_bx_1 = randn(size(n_bx_1)) / 1e9;
-m_Wzr_n = randn(size(m_Wzr_n)) / 1e2;
+m_bz_1 = randn(size(m_bz_1)) / 1e4;
+n_x0_c = randn(size(n_x0_c)) / 1e4;
+n_bx_1 = randn(size(n_bx_1)) / 1e4;
+%m_Wzr_n = randn(size(m_Wzr_n)) / 1e2;
 
 e = abs(eig(n_Wrr_n));
 maxE = max(e);
@@ -40,7 +40,7 @@ maxE = max(e);
 %maxENew = max(e);
 
 net.theta = packRNN(net, n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1);
-net.modMask(net.theta == 0) = 0;
+%net.modMask(net.theta == 0) = 0;
 
 doParallel = true;
 
@@ -50,9 +50,9 @@ simparams.forwardPass = [];
 [~, ~, ~, ~] = hfopt2(net, simparams.taskfun, [], ...
     [], [], ...
     'weightcost', net.wc, ... % Cost on weights (wIn^2 + wOut^2)
-    'Sfrac', 0.2, ... % Fraction of data to use in mini-batch
+    'Sfrac', 1, ... % Fraction of data to use in mini-batch
     'savepath', [baseDir '/RNNs/' simparams.name '/'], ... % Where to save iterations %
-    'saveevery', 5, ...
+    'saveevery', simparams.saveEvery, ...
     'filenamepart', simparams.name, ... % Unique savename identifier
     'optplotfun', simparams.plotfun, ...
     'doplotallobjectives', true, ...
