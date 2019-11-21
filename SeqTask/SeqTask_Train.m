@@ -31,7 +31,7 @@ net.wc = wc;
 m_bz_1 = randn(size(m_bz_1)) / 1e4;
 n_x0_c = randn(size(n_x0_c)) / 1e4;
 n_bx_1 = randn(size(n_bx_1)) / 1e4;
-%m_Wzr_n = randn(size(m_Wzr_n)) / 1e2;
+m_Wzr_n = randn(size(m_Wzr_n)) / sqrt(size(m_Wzr_n,2));
 
 e = abs(eig(n_Wrr_n));
 maxE = max(e);

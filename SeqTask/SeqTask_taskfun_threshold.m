@@ -46,7 +46,7 @@ if do_targets
             goalTargs = net.taskData{i,tr}.targs;
             cueLength = simparams.preTime + simparams.numTargets*10;
             memLength = net.taskData{i,tr}.memLength;
-            m_targettrain_T{i}(:,trialStart:trialStart+cueLength+memLength) = 0;
+            m_targettrain_T{i}(:,trialStart:trialStart+cueLength+memLength+8) = 0;
             targCount = 1;
             thisTarg = goalTargs(targCount);
             pressedTargs = []; penaltyTargs = [];

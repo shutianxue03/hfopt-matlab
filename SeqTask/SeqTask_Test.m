@@ -47,7 +47,7 @@ for cond = 1:length(inp)
     x(:,:,cond) = RNNdata{5}(:,tRange,:);
     inpCut = inp{cond}(:,simparams.preTime+10*simparams.numTargets+10 + tStart);
     inpBig(:,:,cond) = inp{cond}(:,tRange);
-    simparams.forwardPass{cond}{3} = RNNdata{3}(:,tRange);
+    simparams.forwardPass{cond}{3} = RNNdata{3};
 end
 [~, targ, ~, net, ~] = ...
     simparams.taskfun(net, inp, [], simparams, [], false, true);

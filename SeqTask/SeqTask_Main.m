@@ -7,7 +7,7 @@ simparams = [];
 % Top directory for project
 simparams.baseDir = '/Users/jonathanamichaels/Desktop/jmichaels/Projects/ST';
 % Specific title of this run. Simulations will be saved their.
-simparams.name = 'Test3';
+simparams.name = 'GaussianTest';
 % How often to save a checkpoint of training
 simparams.saveEvery = 5;
 % Which task to run
@@ -33,7 +33,7 @@ simparams.tau = 10;
 
 simparams.layer_types = {'linear', 'recttanh', 'rectlinear'}; % input / hidden / output layer activation functions
 % if g is too large then the network can't handle very variable memory periods
-simparams.g = [1 1.2 1]; % spectral scaling of each layer
+simparams.g = [1 1.3 1]; % spectral scaling of each layer
 simparams.obj_fun_type = 'sum-of-squares'; % type of error
 
 simparams.wc = 0; % cost on square of input and output weights
