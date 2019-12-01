@@ -26,6 +26,7 @@ disp(['Loaded: ' thisFile])
 
 simparams.forwardPass = [];
 
+% get the input for 100 trials 
 [inp, ~, ~, net, ~] = ...
     simparams.taskfun(net, [], [], simparams, [], true, false);
 

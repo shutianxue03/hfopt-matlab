@@ -26,6 +26,7 @@ net.firingRateMean.mask = ones(N,1);
 wc = simparams.wc;
 net.wc = wc;
 
+% Random initialization of weights. 
 [n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1] = unpackRNN(net, net.theta);
 
 m_bz_1 = randn(size(m_bz_1)) / 1e4;
