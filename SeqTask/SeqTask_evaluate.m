@@ -4,7 +4,26 @@ function varargout=SeqTask_evaluate(what,varargin)
 baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
 
 switch(what)
-    case 'Get_single_trial_test'
+    case 'Get_simparamsTest'
+        simparams.taskfun=@SeqTask_taskfun_gaussian2; 
+        simparams.numEpisodes=20; 
+        simparams.numTargets=5; 
+        simparams.numTrials=1;
+        simparams.memRange=[80 0];
+        simparams.preTime=10;
+        simparams.moveTime=140; 
+        simparams.noGoFreq=0; 
+        varargout={simparams}; 
+    case 'Get_singleTrialTest' 
+        simparams=varargin{1}; 
+        D.targs=[1 2 3 4 5];
+        D.epsiode =1; 
+        D.trial = 1; 
+        D.noGo =0; 
+        D.memLength = simparams.memRange(1); 
+        [v_inputtrain_T{1},D]=SeqTask_taskfun_inputs(D,simparams); 
+        m_targettrain_T{1}=SeqTask_taskfun_outputs(D,simparams); 
+        varargout={D,v_inputtrain_T,m_targettrain_T};
     case 'Get_network'
         name = varargin{1};
         loadDir = [baseDir '/RNNs/' name '/'];
