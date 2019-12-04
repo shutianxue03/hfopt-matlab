@@ -4,6 +4,11 @@ function varargout=SeqTask_evaluate(what,varargin)
 baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
 
 switch(what)
+    case 'Run_all' 
+        simparams=SeqTask_evaluate('Get_simparamsTest');
+        [D,v_inputtrain_T,m_targettrain_T]=SeqTask_evaluate('Get_singleTrialTest',simparams);
+        net = SeqTask_evaluate('Get_network','GaussianTest');
+        data = SeqTask_evaluate('Run_simulation',net,v_inputtrain_T);
     case 'Get_simparamsTest'
         simparams.taskfun=@SeqTask_taskfun_gaussian2; 
         simparams.numEpisodes=20; 
@@ -16,13 +21,14 @@ switch(what)
         varargout={simparams}; 
     case 'Get_singleTrialTest' 
         simparams=varargin{1}; 
-        D.targs=[1 2 3 4 5];
-        D.epsiode =1; 
-        D.trial = 1; 
-        D.noGo =0; 
-        D.memLength = simparams.memRange(1); 
-        [v_inputtrain_T{1},D]=SeqTask_taskfun_inputs(D,simparams); 
-        m_targettrain_T{1}=SeqTask_taskfun_outputs(D,simparams); 
+        D.targs=perms([1:5]);
+        N=size(D.targs,1); 
+        D.episode = [1:N]'; 
+        D.trial = ones(N,1);  
+        D.noGo = zeros(N,1); 
+        D.memLength = ones(N,1)*simparams.memRange(1); 
+        [v_inputtrain_T,D]=SeqTask_taskfun_inputs(D,simparams); 
+        m_targettrain_T=SeqTask_taskfun_outputs(D,simparams); 
         varargout={D,v_inputtrain_T,m_targettrain_T};
     case 'Get_network'
         name = varargin{1};
@@ -53,419 +59,159 @@ switch(what)
         disp(['Loaded: ' thisFile])
         varargout={net,simparams}; 
     case 'Run_simulation' 
+        % Run the network on the given input 
+        % Output: 
+        % Data{episode}{1} = Firing of latent units across time (after nonlinearity)
+        % Data{episode}{3} = Firing rate of output units 
+        % Data{episode}{5} = Activity of latent units (before nonlinearity)
+
         net=varargin{1}; 
-        simparams=varargin{2}; 
-        simparams.forwardPass = [];
+        inp=varargin{2}; 
         
-        % get the input for x trials
-        [inp, ~, ~, net, ~] = ...
-            simparams.taskfun(net, [], [], simparams, [], true, false);
-        
-        %net.noiseSigma = 0.02;
         wc = net.wc;
         eval_network_rnn2 = create_eval_network_rnn2(wc);
         eval_network = create_eval_network2(eval_network_rnn2, wc);
         package = eval_network(net, inp, [], 1, 1:length(inp), ...
             [], [], 'doparallel', true, 'dowrappers', false);
         data = package{1};
-        tStart = size(inp{1},2)/2 + 1;
-        for cond = 1:length(inp)
-            RNNdata = data{cond};
-            % find targets
-            targs(cond,:) = net.taskData{cond,2}.targs;
-            tRange = tStart:size(RNNdata{3},2);
-            z(:,:,cond) = RNNdata{3}(:,tRange);
-            r(:,:,cond) = RNNdata{1}(:,tRange,:);
-            x(:,:,cond) = RNNdata{5}(:,tRange,:);
-            inpCut = inp{cond}(:,simparams.preTime+10*simparams.numTargets+10 + tStart);
-            inpBig(:,:,cond) = inp{cond}(:,tRange);
-            simparams.forwardPass{cond}{3} = RNNdata{3};
+        varargout = {data};
+    case 'Plot_exampletrial' 
+        % makes a example trial plot 
+        cmap ={'r','m','b','c','g','k'}; 
+        D=varargin{1}; 
+        inp = varargin{2}; 
+        data=varargin{3}; 
+        tn = varargin{4}; 
+        t = [1:size(inp{tn},2)]; 
+        subplot(3,1,1)
+        ylabel('Input')
+        for j = 1:6 
+            tt = find(inp{tn}(j,:)>0.5); 
+            if (~isempty(tt))
+                plot(tt, j, [cmap{j} '.'],'MarkerSize',20); 
+            end; 
+            hold on; 
         end
-        [~, targ, ~, net, ~] = ...
-            simparams.taskfun(net, inp, [], simparams, [], false, true);
-        for cond = 1:length(inp)
-            RNNdata = data{cond};
-            tRange = tStart:size(RNNdata{3},2);
-            zTarg(:,:,cond) = targ{cond}(:,tRange);
-        end
-    case 'Plot_exampletrials' 
-        %[n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1] = unpackRNN(net, net.theta);
-        cmap = [lines(5); 0 0 0];
-        
-        close all
-        figure(1)
-        set(gcf, 'Position', [1 595 711 390])
-        for i = 1:4
-            subplot(3,4,i)
-            if i == 1
-                ylabel('Input')
-            end
-            hold on
-            title(['Example trial ' num2str(i)])
-            for j = [6 1:5]
-                for tt = 1:size(inpBig,2)
-                    if inpBig(j,tt,i) == 1
-                        plot(tt, j, '.', 'Color', cmap(j,:))
-                    end
-                end
-            end
-            set(gca, 'YTick', 1:6, 'YTickLabels', {'1','2','3','4','5','Go'})
-            axis([1 size(inpBig,2) 0.5 6.5])
-            subplot(3,4,i+4)
-            if i == 1
-                ylabel('Output')
-            end
-            hold on
-            plot([1 size(z,2)], [0.5 0.5], 'Color', [0.7 0.7 0.7])
-            for j = 1:5
-                plot(z(j,:,i), 'Color', cmap(j,:))
-            end
-            axis([1 size(inpBig,2) -0.05 0.9])
-            subplot(3,4,i+8)
-            if i == 1
-                ylabel('Target output')
-            end
-            hold on
-            plot([1 size(inpBig,2)], [0.5 0.5], 'Color', [0.7 0.7 0.7])
-            for j = 1:5
-                plot(zTarg(j,:,i), 'Color', cmap(j,:))
-            end
-            axis([1 size(inpBig,2) -0.05 0.9])
-            box off
-        end
-        
-        %% Leave t-sne out for now
-        % % t-sne
-        % figure(2)
-        % clf
-        % count = 1;
-        % Y = cell(1,simparams.numTargets);
-        % for type = 1:simparams.numTargets
-        %     for epoch = 1:simparams.numTargets
-        %         if type == 1
-        %             t = simparams.preTime + epoch*10;
-        %             data = squeeze(r(:,t,:))';
-        %             Y{epoch} = tsne(data, 'NumDimension', 3);
-        %             %[~, Y{epoch}, ~] = pca(data);
-        %         end
-        %
-        %         subplot(simparams.numTargets,simparams.numTargets,count)
-        %         hold on
-        %         for cond = 1:size(Y{epoch},1)
-        %             plot3(Y{epoch}(cond,1), Y{epoch}(cond,2), Y{epoch}(cond,3), '.', 'Color', cmap(targs(cond,type),:))
-        %         end
-        %         view(3)
-        %
-        %         count = count + 1;
-        %     end
-        % end
-        
-        
-        nonLin = net.layers(2).transFun;
+        hold off; 
+        set(gca, 'YTick', 1:6, 'YTickLabels', {'1','2','3','4','5','Go'})
+        axis([1 max(t) 0.5 6.5])
+        subplot(3,1,2)
+        ylabel('Output')
+        for j=1:5 
+            plot(t, data{tn}{3}(j,:),cmap{j}); 
+            hold on; 
+        end; 
+        hold off; 
+        set(gca,'XLim',[1 max(t)]); 
+    case 'RDM_dynamics' 
+        % Generate a time resolved RDM 
+        D=varargin{1}; 
+        data = varargin{2}; 
+        times = [5:10:250]; 
+        K = size(D.episode,1); 
+        H = eye(K)-ones(K)/K; 
+        C=indicatorMatrix('allpairs',[1:K]); 
+        for i=1:length(data) 
+            Z(:,:,i) = data{i}{1};
+        end; 
+        figure(1); 
+        output = data{1}{3}; 
+        t=[1:size(output,2)]; 
+        plot(t,output); 
+        drawline(times); 
+        figure(2); 
+        for i=1:length(times) 
+            Zslice=squeeze(Z(:,times(i),:))'; 
+            Diff = C*Zslice; 
+            RDM=squareform(sum(Diff.*Diff,2)); 
+            subplot(5,5,i); 
+            imagesc(sqrt(RDM),[0 3]); 
+            drawline([24.5:24:100],'dir','vert'); 
+            drawline([24.5:24:100],'dir','horz'); 
+        end; 
+    case 'RDM_predictions'
+        D=varargin{1};         
+        K = size(D.episode,1); 
+        C=indicatorMatrix('allpairs',[1:K]); 
+        RDM=[];
+        for i=1:5 
+            Z=indicatorMatrix('identity',D.targs(:,i)); 
+            Diff = C*Z; 
+            RDM(:,:,i)=squareform(sum(Diff.*Diff,2)); 
+            subplot(2,5,i); 
+            imagesc(sqrt(RDM(:,:,i))); 
+            drawline([24.5:24:100],'dir','vert'); 
+            drawline([24.5:24:100],'dir','horz'); 
+        end; 
+    case 'State_Space_Plot'
+        % set(gcf, 'Position', [998 565 600 420], 'PaperPositionMode', 'Auto')
         % build trial-wise cmap
-        cmapTrial = zeros(size(z,3),3,5);
-        for cond = 1:size(z,3)
+        D=varargin{1}; 
+        data = varargin{2}; 
+        
+        K= size(D.episode,1); 
+        T= size(data{1}{1},2); 
+        dimensions = 3; 
+        timeRange = [1:T-20];
+
+        % Color maps for fingers 
+        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0]; 
+        
+        % Set the time symbols 
+        stampTime = [1 D.cue(1,:) D.cueend(1) D.gocue(1) max(timeRange)]; 
+        stampSymbol = ['^','+','+','+','+','+','o','o','o']; 
+        stampColor = [0 0 0;cmap;0.7 0.7 0.7;0 1 0;0 0 0]; 
+        stampName = {'start','D1','D2','D3','D4','D5','cueend','Go','end'};
+        
+        % Adjust the timing symbols to current time window
+        stampTime(1) = timeRange(1); 
+        stampTime(end) = timeRange(end);
+        stampTime = stampTime-timeRange(1)+1; 
+        
+        % Build color map for trials 
+        cmapTrial = zeros(K,3,5);
+        for i = 1:K
             for tar = 1:5
-                if net.taskData{cond,2}.noGo == 1
-                    cmapTrial(cond,:,tar) = [0.6 0.6 0.6];
+                if D.noGo(i) == 1
+                    cmapTrial(i,:,tar) = [0.6 0.6 0.6];
                 else
-                    cmapTrial(cond,:,tar) = cmap(targs(cond,tar),:);
+                    cmapTrial(i,:,tar) = cmap(D.targs(i,tar),:);
                 end
             end
         end
         
-        % Define plotRanges upfront
-        plotRange = 1 : size(x,2);
-        go = length(plotRange) - simparams.moveTime;
-        endCue = simparams.preTime + simparams.numTargets*10 + 1;
-        fval_tol = 1e-15;
-        while true
-            tRange = simparams.preTime + simparams.numTargets*10 + 1 : size(x,2) - simparams.moveTime - 10;
-            
-            xmeans = x(:,tRange,:);
-            constantInput = inpCut;
-            
-            epsilon = 0.001;
-            niters = 4;
-            max_eps = 0.01;
-            
-            [fp_struct, fpd] = find_many_fixed(net, niters, xmeans(:,:), epsilon, max_eps, fval_tol, ...
-                'constinput', constantInput, 'optmaxiters', 10000, 'display', 'off', ...
-                'dotopomap', false, 'dobail', true, 'tolfun', fval_tol, 'tolx', 1e-25);
-            
-            fnorm = cell2mat({fp_struct.FPNorm});
-            ind = find(~isnan(fnorm));
-            if ~isempty(ind)
-                FPs = fp_struct(ind);
-                thisT = plotRange(1);
-                runLength = length(plotRange) - 1;
-                for cond = 1:size(x,3)
-                    xmeans = x(:,thisT,cond);
-                    constantInput = inpCut;
-                    thisFP = FPs(1).FP;
-                    [n_x_tp1, m_z_tp1]  = run_rnn_linear_dynamics(net, thisFP, constantInput, xmeans, runLength);
-                    runLinear(:,:,cond) = n_x_tp1;
-                    runLinearOutput(:,:,cond) = m_z_tp1;
-                end
-                break
-            else
-                disp('INCREASING FVAL TOL')
-                fval_tol = fval_tol * 10;
-            end
-        end
+        % Condense data 
+        for i=1:length(data) 
+            Z(:,:,i) = data{i}{1};
+        end; 
         
-        
-        disp(['Number of FPs: ' num2str(length(FPs))])
-        
-        cueSpeed = cell2mat({FPs.FPVal});
-        [~, takeInd] = min(cueSpeed);
-        figure(3)
-        set(gcf, 'Position', [717 765 275 220], 'PaperPositionMode', 'Auto')
-        useInd = takeInd;
-        xList = -1.5:0.5:0;
-        xName = {'67','100','200','Inf'};
-        yList = [-1.8850 -1.2567 -0.6283 0 0.6283 1.2567 1.8850]; %[-1.2567 -0.9425 -0.6283 -0.3142 0 0.3142 0.6283 0.9425 1.2567];
-        yName = {'-6','-4','-2','0','2','4','6'};
-        hold on
-        plot(real(FPs(useInd).eigenValues), imag(FPs(useInd).eigenValues), '+', 'MarkerSize', 6, 'LineWidth', 1.5)
-        set(gca, 'XTick', xList, 'XTickLabel', xName, 'YTick', yList, 'YTickLabel', yName)
-        box off
-        set(gca, 'YLim', [yList(1) yList(end)], 'XLim', [-2 0.3])
-        xlabel('Decay half-life (ms)')
-        ylabel('Oscillation frequency (Hz)')
-        plot([0 0], get(gca, 'YLim'), 'Color', [0.6 0.6 0.6])
-        set(gca, 'FontSize', 14)
-        
-        
-        plotFPs = FPs(takeInd);
-        %disp(['fixed point speeds: ' num2str(FPs{1}(1).FPVal) ' ' num2str(FPs{2}(1).FPVal)])
-        
-        figure(4)
-        set(gcf, 'Position', [998 565 600 420], 'PaperPositionMode', 'Auto')
-        xD = 3;
-        data = nonLin(x);
-        preLabel = 'PC ';
-        
-        hold on
-        thisPlotRange = plotRange;
-        
-        pcData = data(:,thisPlotRange,:);
+        % Do the PCA 
+        pcData = Z(:,timeRange,:);
         pcData = pcData(:,:)';
-        m = mean(pcData,1);
-        pcData = pcData - repmat(m, [size(pcData,1) 1]);
+        pcData = bsxfun(@minus,pcData,mean(pcData));
         
-        [coeff, savePC, latent] = pca(pcData);
-        vData = latent / sum(latent);
-        thisCoeff = coeff(:,1:3);
-        coeffData = thisCoeff;
-        score = pcData * thisCoeff;
+        [coeff, score, eigenval] = pca(pcData);
+        vData = eigenval / sum(eigenval);
+        score = pcData * coeff(:,1:3);
         
-        pc = reshape(score', [3 length(thisPlotRange) size(x,3)]);
+        pc = reshape(score', [3 length(timeRange) K]);
         
-        scaler = 1;
-        FList = plotFPs;
-        F = [];
-        E1 = cell(1,length(FList)); E2 = cell(1,length(FList)); EColor = cell(1,length(FList));
-        for i = 1:length(FList)
-            thisFP = nonLin(FList(i).FP);
-            F(i,:) =  (thisFP - m')' * coeffData;
-            count = 1;
-            eigenInd = 1;
-            j = 1;
-            while eigenInd <= 2
-                if real(FList(i).eigenValues(j)) > 0
-                    stable = false;
-                else
-                    stable = true;
-                end
-                if abs(imag(FList(i).eigenValues(j))) > 0
-                    [Q,~] = qr([real(FList(i).eigenVectors(:,j)) imag(FList(i).eigenVectors(:,j))]);
-                    for e = 1:2
-                        thisEigenMinus = thisFP - (Q(:,e) * abs(FList(i).eigenValues(j)));
-                        thisEigenPlus = thisFP + (Q(:,e) * abs(FList(i).eigenValues(j)));
-                        E1{i}(count,:) = ((thisEigenMinus)-m')' * thisCoeff;
-                        E2{i}(count,:) = ((thisEigenPlus)-m')' * thisCoeff;
-                        if stable
-                            EColor{i}(count,:) = [0.5 0.5 0.5];
-                        else
-                            EColor{i}(count,:) = [1 0 0];
-                        end
-                        count = count + 1;
-                    end
-                    j = j + 2;
-                else
-                    thisEigenMinus = thisFP - (real(FList(i).eigenVectors(:,j)) * abs(FList(i).eigenValues(j)));
-                    thisEigenPlus = thisFP + (real(FList(i).eigenVectors(:,j)) * abs(FList(i).eigenValues(j)));
-                    E1{i}(count,:) = ((thisEigenMinus)-m')' * thisCoeff;
-                    E2{i}(count,:) = ((thisEigenPlus)-m')' * thisCoeff;
-                    if stable
-                        EColor{i}(count,:) = [0.5 0.5 0.5];
-                    else
-                        EColor{i}(count,:) = [1 0 0];
-                    end
-                    count = count + 1;
-                    j = j + 1;
-                end
-                eigenInd = eigenInd + 1;
-            end
-        end
-        
+        % Plot the trajectories and the markers 
         for cond = 1:size(pc,3)
-            if xD == 3
-                plot3(pc(1,:,cond), pc(2,:,cond), pc(3,:,cond), 'Color', cmapTrial(cond,:,1))
-                plot3(pc(1,endCue,cond), pc(2,endCue,cond), pc(3,endCue,cond), '.', 'Color', 'black', 'MarkerSize', 15)
-                plot3(pc(1,go,cond), pc(2,go,cond), pc(3,go,cond), '.', 'Color', [0.7 0.7 0.7], 'MarkerSize', 15)
-            elseif xD == 2
-                plot(pc(1,:,cond), pc(2,:,cond), 'Color', cmapTrial(cond,:,1))
-                plot(pc(1,1,cond), pc(2,1,cond), '.', 'Color', 'black', 'MarkerSize', 10)
+            go = -timeRange(1)+1;
+            endCue = D.cueend(1)-timeRange(1)+1; 
+            endTrial = length(timeRange); 
+            if dimensions == 3
+                plot3(pc(1,:,cond), pc(2,:,cond), pc(3,:,cond), 'Color', cmapTrial(cond,:,1));
+                hold on; 
+                % Generate the stamp symbols 
+                for i=1:length(stampTime) 
+                    h(i)=plot3(pc(1,stampTime(i),cond), pc(2,stampTime(i),cond), pc(3,stampTime(i),cond), stampSymbol{i}, 'Color', stampColor(i,:), 'MarkerSize', 5);
+                end; 
+            elseif dimensions == 2
+                % Todo 
             end
-            
-        end
-        
-        pointMap = repmat([0 0 0], [size(F,1) 1]);
-        for i = 1:size(F,1)
-            if xD == 3
-                plot3(F(i,1),F(i,2),F(i,3),'+', 'MarkerSize', 10, 'MarkerFaceColor', 'none', 'MarkerEdgeColor', pointMap(i,:), 'LineWidth', 2)
-                for j = 1:size(E1{i},1)
-                    plot3([E1{i}(j,1), E2{i}(j,1)], [E1{i}(j,2), E2{i}(j,2)], ...
-                        [E1{i}(j,3), E2{i}(j,3)], 'LineWidth', 2, 'Color', EColor{i}(j,:))
-                end
-            else
-                plot(F(i,1),F(i,2),'+', 'MarkerSize', 10, 'MarkerFaceColor', 'none', 'MarkerEdgeColor', pointMap(i,:), 'LineWidth', 2)
-                for j = 1:size(E1{i},1)
-                    plot([E1{i}(j,1), E2{i}(j,1)], [E1{i}(j,2), E2{i}(j,2)], ...
-                        'LineWidth', 2, 'Color', EColor{i}(j,:))
-                end
-            end
-            
-        end
-        xlabel([preLabel '1'])
-        ylabel([preLabel '2'])
-        if xD == 3
-            zlabel([preLabel '3'])
-            view(3)
-            axis vis3d
-        end
-        
-        
-        pc = reshape(savePC', [size(savePC,2) length(thisPlotRange) size(x,3)]);
-        figure(5)
-        set(gcf, 'Position', [1 57 988 464], 'PaperPositionMode', 'Auto')
-        count = 1;
-        for tar = 1:5
-            for dim = 1:5
-                subplot(5,5,count)
-                if tar == 1
-                    title(['PC ' num2str(dim) ', var expl: ' num2str(vData(dim))])
-                end
-                hold on
-                for cond = 1:size(pc,3)
-                    plot(pc(dim,:,cond), 'Color', cmapTrial(cond,:,tar))
-                end
-                count = count + 1;
-            end
-        end
-        
-        %% Leaving out the linearized dynamics for now
-        %
-        % figure(6)
-        % set(gcf, 'Position', [1407 17 490 430], 'PaperPositionMode', 'Auto')
-        % clf
-        % xD = 3;
-        % hold on
-        %
-        % pcData = nonLin(runLinear);
-        % pcData = pcData(:,:)';
-        % m = meanData;
-        % pcData = pcData - repmat(m, [size(pcData,1) 1]);
-        % thisData = pcData;
-        % thisCoeff = coeffData;
-        % score = thisData * thisCoeff;
-        %
-        % pc = reshape(score', [3 size(runLinear,2) size(x,3)]);
-        %
-        % scaler = 1;
-        % FList = plotFPs;
-        % F = [];
-        % E1 = cell(1,length(FList)); E2 = cell(1,length(FList));
-        % for i = 1:length(FList)
-        %     thisFP = nonLin(FList(i).FP);
-        %     F(i,:) = ((thisFP)-m')' * thisCoeff;
-        %     count = 1;
-        %     eigenInd = 1;
-        %     j = 1;
-        %     while eigenInd <= 2
-        %         if real(FList(i).eigenValues(j)) > 0
-        %             stable = false;
-        %         else
-        %             stable = true;
-        %         end
-        %         if abs(imag(FList(i).eigenValues(j))) > 0
-        %             [Q,~] = qr([real(FList(i).eigenVectors(:,j)) imag(FList(i).eigenVectors(:,j))]);
-        %             for e = 1:2
-        %                 thisEigenMinus = thisFP - (Q(:,e) * abs(FList(i).eigenValues(j)));
-        %                 thisEigenPlus = thisFP + (Q(:,e) * abs(FList(i).eigenValues(j)));
-        %                 E1{i}(count,:) = ((thisEigenMinus)-m')' * thisCoeff;
-        %                 E2{i}(count,:) = ((thisEigenPlus)-m')' * thisCoeff;
-        %                 if stable
-        %                     EColor{i}(count,:) = [0.5 0.5 0.5];
-        %                 else
-        %                     EColor{i}(count,:) = [1 0 0];
-        %                 end
-        %                 count = count + 1;
-        %             end
-        %             j = j + 2;
-        %         else
-        %             thisEigenMinus = thisFP - (real(FList(i).eigenVectors(:,j)) * abs(FList(i).eigenValues(j)));
-        %             thisEigenPlus = thisFP + (real(FList(i).eigenVectors(:,j)) * abs(FList(i).eigenValues(j)));
-        %             E1{i}(count,:) = ((thisEigenMinus)-m')' * thisCoeff;
-        %             E2{i}(count,:) = ((thisEigenPlus)-m')' * thisCoeff;
-        %             if stable
-        %                 EColor{i}(count,:) = [0.5 0.5 0.5];
-        %             else
-        %                 EColor{i}(count,:) = [1 0 0];
-        %             end
-        %             count = count + 1;
-        %             j = j + 1;
-        %         end
-        %         eigenInd = eigenInd + 1;
-        %     end
-        % end
-        %
-        %
-        % hold on
-        % for cond = 1:size(pc,3)
-        %     if xD == 3
-        %         plot3(pc(1,:,cond), pc(2,:,cond), pc(3,:,cond), 'Color', cmap(targs(cond,1),:))
-        %         plot3(pc(1,1,cond), pc(2,1,cond), pc(3,1,cond), '.', 'Color', 'black', 'MarkerSize', 10)
-        %     elseif xD == 2
-        %         plot(pc(1,:,cond), pc(2,:,cond), 'Color', cmap(targs(cond,1),:))
-        %         plot(pc(1,1,cond), pc(2,1,cond), '.', 'Color', 'black', 'MarkerSize', 10)
-        %     end
-        % end
-        % pointMap = repmat([0 0 0], [size(F,1) 1]);
-        % for i = 1:size(F,1)
-        %     if xD == 3
-        %         plot3(F(i,1),F(i,2),F(i,3),'+', 'MarkerSize', 10, 'MarkerFaceColor', 'none', 'MarkerEdgeColor', pointMap(i,:), 'LineWidth', 2)
-        %         for j = 1:size(E1{i},1)
-        %             plot3([E1{i}(j,1), E2{i}(j,1)], [E1{i}(j,2), E2{i}(j,2)], ...
-        %                 [E1{i}(j,3), E2{i}(j,3)], 'LineWidth', 2, 'Color', EColor{i}(j,:))
-        %         end
-        %     else
-        %         plot(F(i,1),F(i,2),'+', 'MarkerSize', 10, 'MarkerFaceColor', 'none', 'MarkerEdgeColor', pointMap(i,:), 'LineWidth', 2)
-        %         for j = 1:size(E1{i},1)
-        %             plot([E1{i}(j,1), E2{i}(j,1)], [E1{i}(j,2), E2{i}(j,2)], ...
-        %                 'LineWidth', 2, 'Color', EColor{i}(j,:))
-        %         end
-        %     end
-        % end
-        % xlabel('PC 1')
-        % ylabel('PC 2')
-        % if xD == 3
-        %     zlabel('PC 3')
-        %     view(3)
-        %     axis vis3d
-        % end
-        
-        
+        end        
+        legend(h,stampName); 
+        hold off; 
 end

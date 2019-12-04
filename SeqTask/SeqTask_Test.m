@@ -148,65 +148,65 @@ plotRange = 1 : size(x,2);
 go = length(plotRange) - simparams.moveTime;
 endCue = simparams.preTime + simparams.numTargets*10 + 1;
 fval_tol = 1e-15;
-while true
-    tRange = simparams.preTime + simparams.numTargets*10 + 1 : size(x,2) - simparams.moveTime - 10;
-    
-    xmeans = x(:,tRange,:);
-    constantInput = inpCut;
-    
-    epsilon = 0.001;
-    niters = 4;
-    max_eps = 0.01;
-    
-    [fp_struct, fpd] = find_many_fixed(net, niters, xmeans(:,:), epsilon, max_eps, fval_tol, ...
-        'constinput', constantInput, 'optmaxiters', 10000, 'display', 'off', ...
-        'dotopomap', false, 'dobail', true, 'tolfun', fval_tol, 'tolx', 1e-25);
-    
-    fnorm = cell2mat({fp_struct.FPNorm});
-    ind = find(~isnan(fnorm));
-    if ~isempty(ind)
-        FPs = fp_struct(ind);
-        thisT = plotRange(1);
-        runLength = length(plotRange) - 1;
-        for cond = 1:size(x,3)
-            xmeans = x(:,thisT,cond);
-            constantInput = inpCut;      
-            thisFP = FPs(1).FP;
-            [n_x_tp1, m_z_tp1]  = run_rnn_linear_dynamics(net, thisFP, constantInput, xmeans, runLength);
-            runLinear(:,:,cond) = n_x_tp1;
-            runLinearOutput(:,:,cond) = m_z_tp1;
-        end
-        break
-    else
-        disp('INCREASING FVAL TOL')
-        fval_tol = fval_tol * 10;
-    end
-end
-
-
-disp(['Number of FPs: ' num2str(length(FPs))])
-
-cueSpeed = cell2mat({FPs.FPVal});
-[~, takeInd] = min(cueSpeed);
-figure(3)
-set(gcf, 'Position', [717 765 275 220], 'PaperPositionMode', 'Auto')
-useInd = takeInd;
-xList = -1.5:0.5:0;
-xName = {'67','100','200','Inf'};
-yList = [-1.8850 -1.2567 -0.6283 0 0.6283 1.2567 1.8850]; %[-1.2567 -0.9425 -0.6283 -0.3142 0 0.3142 0.6283 0.9425 1.2567];
-yName = {'-6','-4','-2','0','2','4','6'};
-hold on
-plot(real(FPs(useInd).eigenValues), imag(FPs(useInd).eigenValues), '+', 'MarkerSize', 6, 'LineWidth', 1.5)
-set(gca, 'XTick', xList, 'XTickLabel', xName, 'YTick', yList, 'YTickLabel', yName)
-box off
-set(gca, 'YLim', [yList(1) yList(end)], 'XLim', [-2 0.3])
-xlabel('Decay half-life (ms)')
-ylabel('Oscillation frequency (Hz)')
-plot([0 0], get(gca, 'YLim'), 'Color', [0.6 0.6 0.6])
-set(gca, 'FontSize', 14)
-
-
-plotFPs = FPs(takeInd);
+% while true
+%     tRange = simparams.preTime + simparams.numTargets*10 + 1 : size(x,2) - simparams.moveTime - 10;
+%     
+%     xmeans = x(:,tRange,:);
+%     constantInput = inpCut;
+%     
+%     epsilon = 0.001;
+%     niters = 4;
+%     max_eps = 0.01;
+%     
+%     [fp_struct, fpd] = find_many_fixed(net, niters, xmeans(:,:), epsilon, max_eps, fval_tol, ...
+%         'constinput', constantInput, 'optmaxiters', 10000, 'display', 'off', ...
+%         'dotopomap', false, 'dobail', true, 'tolfun', fval_tol, 'tolx', 1e-25);
+%     
+%     fnorm = cell2mat({fp_struct.FPNorm});
+%     ind = find(~isnan(fnorm));
+%     if ~isempty(ind)
+%         FPs = fp_struct(ind);
+%         thisT = plotRange(1);
+%         runLength = length(plotRange) - 1;
+%         for cond = 1:size(x,3)
+%             xmeans = x(:,thisT,cond);
+%             constantInput = inpCut;      
+%             thisFP = FPs(1).FP;
+%             [n_x_tp1, m_z_tp1]  = run_rnn_linear_dynamics(net, thisFP, constantInput, xmeans, runLength);
+%             runLinear(:,:,cond) = n_x_tp1;
+%             runLinearOutput(:,:,cond) = m_z_tp1;
+%         end
+%         break
+%     else
+%         disp('INCREASING FVAL TOL')
+%         fval_tol = fval_tol * 10;
+%     end
+% end
+% 
+% 
+% disp(['Number of FPs: ' num2str(length(FPs))])
+% 
+% cueSpeed = cell2mat({FPs.FPVal});
+% [~, takeInd] = min(cueSpeed);
+% figure(3)
+% set(gcf, 'Position', [717 765 275 220], 'PaperPositionMode', 'Auto')
+% useInd = takeInd;
+% xList = -1.5:0.5:0;
+% xName = {'67','100','200','Inf'};
+% yList = [-1.8850 -1.2567 -0.6283 0 0.6283 1.2567 1.8850]; %[-1.2567 -0.9425 -0.6283 -0.3142 0 0.3142 0.6283 0.9425 1.2567];
+% yName = {'-6','-4','-2','0','2','4','6'};
+% hold on
+% plot(real(FPs(useInd).eigenValues), imag(FPs(useInd).eigenValues), '+', 'MarkerSize', 6, 'LineWidth', 1.5)
+% set(gca, 'XTick', xList, 'XTickLabel', xName, 'YTick', yList, 'YTickLabel', yName)
+% box off
+% set(gca, 'YLim', [yList(1) yList(end)], 'XLim', [-2 0.3])
+% xlabel('Decay half-life (ms)')
+% ylabel('Oscillation frequency (Hz)')
+% plot([0 0], get(gca, 'YLim'), 'Color', [0.6 0.6 0.6])
+% set(gca, 'FontSize', 14)
+% 
+% 
+% plotFPs = FPs(takeInd);
 %disp(['fixed point speeds: ' num2str(FPs{1}(1).FPVal) ' ' num2str(FPs{2}(1).FPVal)])
 
 figure(4)
