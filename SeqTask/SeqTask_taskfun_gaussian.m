@@ -2,59 +2,40 @@ function [v_inputtrain_T, m_targettrain_T, did_change_train_data, net, all_simda
     SeqTask_taskfun_gaussian(net, v_inputtrain_T, m_targettrain_T, simparams, all_simdata, do_inputs, do_targets)
 % Generates inputs and / or target shapes for design specified in simparams
 did_change_train_data = false;
+j=1;
 
-% Produce the inputs to the instruction inputs and 
+% Produce the targets, inputs and instruction inputs
 if do_inputs
-    for i = 1:simparams.numTrials   
-        v_inputtrain_T{i} = [];
-        for tr = 1:simparams.batchSize
-            noGo = false;
+    net.taskData=[];
+    for i = 1:simparams.numEpisodes   % Number of episodes
+        D=[];
+        for tr = 1:simparams.numTrials % Number of trials in episode
+            D.episode(tr,1)=i;
+            D.trial(tr,1)=tr;
+            
+            % Go or NoGo ?
+            D.noGo(tr,1) = false;
             if rand < simparams.noGoFreq
-                noGo = true;
+                D.noGo(tr,1) = true;
             end
-            targs = randsample(5,simparams.numTargets,false);
-            cueLength = simparams.preTime + simparams.numTargets*10;
-            memLength = simparams.memRange(1);
-            if simparams.memRange(2) > 0
-                memLength = memLength + randsample(simparams.memRange(2),1);
+            
+            % Determine targets
+            D.targs(tr,:) = randsample(5,simparams.numTargets,simparams.withreplace);
+            % Memory interval length
+            if (length(simparams.memPeriod)==1) 
+                D.memLength(tr,1) = simparams.memPeriod(1);
+            else 
+                D.memLength(tr,1)  = simparams.memPeriod(1) + ...
+                    randsample(simparams.memPeriod(2)-simparams.memPeriod(1),1);
             end
-            tCourse = zeros(6,cueLength+memLength+simparams.moveTime);
-            if ~noGo
-                tCourse(6,cueLength+memLength : cueLength+memLength+9) = 1;
-            end
-            for j = 1:length(targs)
-                tCourse(targs(j),simparams.preTime + (j-1)*10 + 1 : simparams.preTime + j*10) = 1;
-            end
-            v_inputtrain_T{i} = cat(2, v_inputtrain_T{i}, tCourse);
-            net.taskData{i,tr}.noGo = noGo;
-            net.taskData{i,tr}.targs = targs;
-            net.taskData{i,tr}.memLength = memLength;
         end
+        net.taskData = addstruct(net.taskData,D);
     end
+    [v_inputtrain_T,net.taskData] = SeqTask_taskfun_inputs(net.taskData,simparams);
     did_change_train_data = true;
 end
 
+% Produce the desired outout
 if do_targets
-    targShape = gausswin(25,3);
-    targShape = targShape / max(targShape) * 0.6;
-    for i = 1:length(v_inputtrain_T)
-        m_targettrain_T{i} = zeros(5, size(v_inputtrain_T{i},2));
-        trialStart = 1;
-        for tr = 1:simparams.batchSize
-            noGo = net.taskData{i,tr}.noGo;
-            goalTargs = net.taskData{i,tr}.targs;
-            memLength = net.taskData{i,tr}.memLength;  
-            cueLength = simparams.preTime + simparams.numTargets*10;
-            if ~noGo
-                tStart = trialStart + cueLength + memLength + 9;
-                for j = 1:length(goalTargs)
-                    m_targettrain_T{i}(goalTargs(j), tStart : tStart + length(targShape) - 1) = targShape;
-                    tStart = tStart + 10;
-                end  
-            end
-            trialStart = trialStart+cueLength+memLength+simparams.moveTime;
-        end
-    end
-end
-
+    m_targettrain_T = SeqTask_taskfun_outputs(net.taskData,simparams);
 end

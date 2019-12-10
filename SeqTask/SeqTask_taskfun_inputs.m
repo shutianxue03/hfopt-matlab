@@ -10,21 +10,25 @@ for e=ep
     for i = 1:length(tn) % trials within the
         % Input time course
         numTargets = sum(~isnan(D.targs(tn(i),:)));
-        cueLength = simparams.preTime + numTargets*10;
-        lengthTrial = cueLength+D.memLength(tn(i))+10+simparams.moveTime;
-        tCourse = zeros(6,lengthTrial);
-        if ~D.noGo(i)
-            tCourse(6,cueLength+D.memLength(tn(i)) : cueLength+D.memLength(tn(i))+9) = 1;
-        end
-        for j = 1:numTargets
-            tCourse(D.targs(tn(i),j),simparams.preTime + (j-1)*10 + 1 : simparams.preTime + j*10) = 1;
-        end
-        inp = cat(2, inp, tCourse);
         D.start(tn(i),1) = start;
-        D.end(tn(i),1) = start + lengthTrial-1;
-        D.cueend(tn(i),1) = start + cueLength-1; 
-        D.gocue(tn(i),1) = start+cueLength+D.memLength(i)-1;
+        t=start+simparams.preTime;
+        for j = 1:numTargets
+            inp(D.targs(tn(i),j), t: t+simparams.cueOn-1) = 1;
+            D.cue(tn(i),j)=t;
+            t=t+simparams.cueOn + simparams.cueOff; 
+        end
+        D.cueend(tn(i),1) = t; 
+        
+        if ~D.noGo(tn(i))         % Go trial: 
+            D.gocue(tn(i),1) = D.cueend(tn(i))+D.memLength(tn(i))-1;
+            inp(6,D.gocue(tn(i),1) : D.gocue(tn(i),1)+9) = 1;
+            D.end(tn(i),1) = D.gocue(tn(i)) + simparams.RT + simparams.moveTime;
+        else                      % Nogo trial 
+            D.gocue(tn(i),1) = NaN; 
+            D.end(tn(i),1) = D.cueend(tn(i))+D.memLength(tn(i))+50; % IPI for nogo-trial 
+        end
         start = D.end(tn(i),1)+1; % Start of next trial
-    end;
+    end
+    inp(6,D.end(tn(i),1))=0; 
     v_inputtrain_T{e}=inp;
 end

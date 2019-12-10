@@ -902,7 +902,8 @@ while go
         % revaluated because the network has changed.  But up until that point, everybody is seeing the same single forward pass instantiation.
         package = eval_network(net, v_inputtrain_T, m_targettrain_T, TvV_T, all_train_trial_idxs, all_optional_args, all_simdata, 'doparallel', do_parallel_objfun, 'dowrappers', do_wrappers_objfun);
         forward_pass_T = package{1};
-        all_simdata = package{end}; simparams.forwardPass = forward_pass_T;
+        all_simdata = package{end}; 
+        simparams.forwardPass = forward_pass_T;
         clear package;
         
         % Now compute the targets, simdata will be updated from the forward run of the network just above.
