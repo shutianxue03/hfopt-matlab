@@ -5,12 +5,18 @@ baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
 
 switch(what)
     case 'Run_all'
+        % Train a network 
+        simparams=SeqTask('Get_simparamsTrain'); % Get parameters 
+        % Make modifications as desired 
+        SeqTask('trainNetwork',simparams); % Train a network 
+        
+        % Now test it on single trials 
         simparams=SeqTask('Get_simparamsTest');
         [D,v_inputtrain_T,m_targettrain_T]=SeqTask('Get_singleTrialTest',simparams);
-        net = SeqTask('Get_network','GaussianTest');
-        data = SeqTask('Run_simulation',net,v_inputtrain_T);
+        net = SeqTask('Get_network','GaussianNoRep1');
+        data = SeqTask('Run_simulation',net,v_inputtrain_T); % Run the simulation of the current network
     case 'Get_simparamsTrain'
-        simparams.name = 'GaussianTest';
+        simparams.name = 'GaussianNoRep1';
         % How often to save a checkpoint of training
         simparams.saveEvery = 5;
         % Which task to run
@@ -22,14 +28,14 @@ switch(what)
         simparams.numTrials = 3;        % How many trials to string together
         simparams.numTargets = 5;       % Number of elements in the sequence
         simparams.withreplace = false;   % Targets can repeat? 
-        simparams.memPeriod = [10 90];  % Range of memory period.
+        simparams.memPeriod = [10 100];  % Range of memory period.
         simparams.preTime = 10; % Time before visual cues
-        simparams.cueOn   = 10; % How long is each sequence cue on? 
-        simparams.cueOff   = 10; % How long is each sequence cue off?
+        simparams.cueOn   = 8; % How long is each sequence cue on? 
+        simparams.cueOff   = 2; % How long is each sequence cue off?
         simparams.forceWidth= 25; % How long is each force press? 
-        simparams.forceIPI= 1;   % How long between each force press?         
-        simparams.RT = 20; 
-        simparams.moveTime = (simparams.forceWidth+simparams.forceIPI)*simparams.numTargets+20; % Total movement time
+        simparams.forceIPI= 12;   % How long between onsets of each press?         
+        simparams.RT = 12;         % From onset of go-cue to beginning of force production 
+        simparams.moveTime = (simparams.numTargets-1)*simparams.forceIPI+simparams.forceWidth+30; % Total movement time
         simparams.noGoFreq = 0.1; % Frequency of nogo trials
         
         % Network size parameters
@@ -127,13 +133,13 @@ switch(what)
         simparams.numTrials = 3;        % How many trials to string together
         simparams.numTargets = 5;       % Number of elements in the sequence
         simparams.withreplace = false;   % Targets can repeat? 
-        simparams.memPeriod = [10 90];  % Range of memory period.
+        simparams.memPeriod = 80;  % Range of memory period.
         simparams.preTime = 10; % Time before visual cues
-        simparams.cueOn   = 10; % How long is each sequence cue on? 
-        simparams.cueOff   = 10; % How long is each sequence cue off?
+        simparams.cueOn   = 8; % How long is each sequence cue on? 
+        simparams.cueOff   = 2; % How long is each sequence cue off?
         simparams.forceWidth= 25; % How long is each force press? 
-        simparams.forceIPI= 1;   % How long between each force press?         
-        simparams.RT = 20; 
+        simparams.forceIPI= 12;   % How long between onsets of each press?         
+        simparams.RT = 12;         % From onset of go-cue to beginning of force production 
         simparams.moveTime = (simparams.forceWidth+simparams.forceIPI)*simparams.numTargets+20; % Total movement time
         simparams.noGoFreq=0;   
         varargout={simparams};
@@ -171,8 +177,12 @@ switch(what)
             thisFile = listing(loadInd).name;
         else % Otherwise get one specific one
             networknum = varargin{2};
-            listing = dir(fullfile(loadDir,sprintf('hfopt_%s_d_*.mat',name,networkum)));
-            thisFile = listing(loadInd).name;
+            listing = dir(fullfile(loadDir,sprintf('hfopt_%s_%d_*.mat',name,networknum)));
+            if (length(listing)==0)
+                error('file not found'); 
+            else 
+                thisFile = listing(1).name;
+            end; 
         end;
         load(fullfile(loadDir,thisFile),'net','simparams')
         disp(['Loaded: ' thisFile])
@@ -195,20 +205,22 @@ switch(what)
         data = package{1};
         varargout = {data};
     case 'performance'
+        % Rate performance and establish timing 
+        % D=SeqTask('performance',data,D); 
         data = varargin{1};
         D= varargin{2};
-        thresh =0.3;
+        thresh =0.1;
         for i=1:length(data)
             out=data{i}{3};
-            out = out>thresh;
             pressed=zeros(5,1);
             press = 0;
             for t=D.gocue(i):size(out,2);
-                fing = find(pressed==0 & out(:,t)==1);
+                fing = find(pressed==0 & out(:,t)>thresh);
                 if ~isempty(fing)
                     press = press+1;
                     D.press(i,press)=fing(1);
-                    D.pressT(i,press)=t;
+                    D.pressOnset(i,press)=t;
+                    [~,D.pressMax(i,press)]=max(out(fing,:)); % Only works for 1 press per finger 
                     pressed(fing(1))=1;
                 end;
             end;
@@ -237,7 +249,7 @@ switch(what)
         subplot(3,1,2)
         ylabel('Output')
         for j=1:5
-            plot(t, data{tn}{3}(j,:),cmap{j});
+            plot(t, data{tn}{3}(j,:),cmap{j},'LineWidth',2);
             hold on;
         end;
         hold off;
@@ -246,9 +258,9 @@ switch(what)
         % Generate a time resolved RDM
         D=varargin{1};
         data = varargin{2};
-        stats = 'G'; % 'D','G'
+        stats = 'G'; % 'D','G' Distance or second moment? 
         type = 1; % 1:latent firing, 3: output firing, 5: latent activity
-        timepoints = [5:10:250];
+        timepoints = [2:10:250]; % What timepoints in the simulation 
         cscale  = [0 10];
         doplot = 1;
         vararginoptions(varargin(3:end),{'stats','type','timepoints','cscale','doplot'});
@@ -312,7 +324,7 @@ switch(what)
         % Color maps for fingers
         cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0;0.5 0.5 0.5];
         type = 1; % 1:latent firing, 3: output firing, 5: latent activity
-        timepoints = [5:5:250];
+        timepoints = [5:2:250];
         D=varargin{1};
         data=varargin{2};
         Gemp = SeqTask('RDM_dynamics',D,data,'stats','G','type',type,'timepoints',timepoints,'doplot',0);
@@ -330,24 +342,29 @@ switch(what)
             beta(:,t)=lsqnonneg(X,y);
             tss(t) = y'*y;
             fss(:,t)=sum(bsxfun(@times,X,beta(:,t)').^2,1);
+            FSS = sum((X*beta).^2); 
         end;
         
         % Plot the fitted and total sums of squares
         figure(2);
         for i=1:size(Gmod,3)
-            plot(timepoints,fss(i,:)','Color',cmap(i,:),'LineWidth',2);
+            plot(timepoints,fss(i,:)./tss,'Color',cmap(i,:),'LineWidth',2);
             hold on;
         end;
-        plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle','-');
-        plot(timepoints,sum(fss,1),'Color',[0 0 0],'LineWidth',1,'LineStyle',':');
+        % plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle','-');
+        plot(timepoints,FSS./tss,'Color',[0 0 0],'LineWidth',1,'LineStyle',':');
         
-        drawline([D.cue(1,:) D.gocue(1,:) D.pressT(1,:)]);
+        drawline([D.cue(1,:) D.gocue(1,:) mean(D.pressMax)]);
         hold off;
-        keyboard;
+        xlabel('Time'); 
+        ylabel('Proportion variance explained'); 
+        
+
         
     case 'State_Space_Plot'
-        % set(gcf, 'Position', [998 565 600 420], 'PaperPositionMode', 'Auto')
-        % build trial-wise cmap
+        % Makes a state-space plot of neuronal trajectories in a specified
+        % window 
+        
         D=varargin{1};
         data = varargin{2};
         
@@ -360,7 +377,7 @@ switch(what)
         cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0];
         
         % Set the time symbols
-        stampTime = [1 D.cue(1,:) D.cueend(1) D.gocue(1) D.pressT(1,:) max(timeRange)];
+        stampTime = [1 D.cue(1,:) D.cueend(1) D.gocue(1) round(mean(D.pressMax)) max(timeRange)];
         stampSymbol = {'^','+','+','+','+','+','o','o','x','x','x','x','x','o'};
         stampColor = [0 0 0;cmap;0.7 0.7 0.7;0 1 0;cmap;0 0 0];
         stampName = {'start','D1','D2','D3','D4','D5','cueend','Go','P1','P2','P3','P4','P5','end'};

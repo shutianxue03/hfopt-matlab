@@ -3,7 +3,6 @@ function [m_targettrain_T,D] = SeqTask_taskfun_outputs(D,simparams)
 numtrials = length(D.trial);
 targShape = gausswin(simparams.forceWidth,3);
 targShape = targShape / max(targShape) * 0.6;
-targShape = [targShape;zeros(simparams.forceIPI,1)]; 
 m_targettrain_T={};
 ep = unique(D.episode)';
 for e=ep
@@ -15,9 +14,9 @@ for e=ep
         if (~D.noGo(tn(i)))
             tStart = D.gocue(tn(i),1)+simparams.RT;
             numTargets =sum(~isnan(D.targs(tn(i),:))); 
-            for j = 1:numTargets 
+            for j = 1:numTargets
                 m_targettrain_T{e}(D.targs(tn(i),j), tStart : tStart + length(targShape) - 1) = targShape;
-                tStart = tStart + length(targShape);
+                tStart = tStart + simparams.forceIPI;
             end 
         end
     end

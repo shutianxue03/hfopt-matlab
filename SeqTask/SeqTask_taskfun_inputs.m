@@ -25,7 +25,7 @@ for e=ep
             D.end(tn(i),1) = D.gocue(tn(i)) + simparams.RT + simparams.moveTime;
         else                      % Nogo trial 
             D.gocue(tn(i),1) = NaN; 
-            D.end(tn(i),1) = D.cueend(tn(i))+D.memLength(tn(i))+50; % IPI for nogo-trial 
+            D.end(tn(i),1) = D.cueend(tn(i))+D.memLength(tn(i))+ simparams.moveTime; % IPI for nogo-trial 
         end
         start = D.end(tn(i),1)+1; % Start of next trial
     end
