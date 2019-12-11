@@ -16,7 +16,7 @@ switch(what)
         net = SeqTask('Get_network','GaussianNoRep1');
         data = SeqTask('Run_simulation',net,v_inputtrain_T); % Run the simulation of the current network
     case 'Get_simparamsTrain'
-        simparams.name = 'GaussianNoRep1';
+        simparams.name = 'GaussianNoRep2';
         % How often to save a checkpoint of training
         simparams.saveEvery = 5;
         % Which task to run
@@ -33,9 +33,9 @@ switch(what)
         simparams.cueOn   = 8; % How long is each sequence cue on? 
         simparams.cueOff   = 2; % How long is each sequence cue off?
         simparams.forceWidth= 25; % How long is each force press? 
-        simparams.forceIPI= 12;   % How long between onsets of each press?         
+        simparams.forceIPI= 10;   % How long between onsets of each press?         
         simparams.RT = 12;         % From onset of go-cue to beginning of force production 
-        simparams.moveTime = (simparams.numTargets-1)*simparams.forceIPI+simparams.forceWidth+30; % Total movement time
+        simparams.moveTime = 100; % (simparams.numTargets-1)*simparams.forceIPI+simparams.forceWidth+30; % Total movement time
         simparams.noGoFreq = 0.1; % Frequency of nogo trials
         
         % Network size parameters
@@ -292,8 +292,9 @@ switch(what)
             end;
         end;
         varargout={G};
-    case 'RDM_predictions'
+    case 'RDM_models'
         D=varargin{1};
+        features ={'fingers','transitions'}; % Combination of 'fingers','transitions','sequence'
         K = size(D.episode,1);
         H = eye(K)-ones(K)/K;
         C=indicatorMatrix('allpairs',[1:K]);
@@ -301,6 +302,9 @@ switch(what)
         vararginoptions(varargin(3:end),{'stats'});
         
         G=[];
+        Z=[]; 
+        j=1; 
+        for i=1:length(features)
         for i=1:6
             if (i<6)
                 Z=indicatorMatrix('identity',D.targs(:,i));
@@ -358,13 +362,10 @@ switch(what)
         hold off;
         xlabel('Time'); 
         ylabel('Proportion variance explained'); 
-        
-
-        
     case 'State_Space_Plot'
         % Makes a state-space plot of neuronal trajectories in a specified
-        % window 
-        
+        % time window 
+        % SeqTask('State_Space_Plot',D,data,'timeRange',[160:250])
         D=varargin{1};
         data = varargin{2};
         
