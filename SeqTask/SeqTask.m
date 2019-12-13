@@ -13,8 +13,9 @@ switch(what)
         % Now test it on single trials 
         simparams=SeqTask('Get_simparamsTest');
         [D,v_inputtrain_T,m_targettrain_T]=SeqTask('Get_singleTrialTest',simparams);
-        net = SeqTask('Get_network','GaussianNoRep1');
+        net = SeqTask('Get_network','GaussianNoRep2');
         data = SeqTask('Run_simulation',net,v_inputtrain_T); % Run the simulation of the current network
+        D=SeqTask('performance',data,D);        
     case 'Get_simparamsTrain'
         simparams.name = 'GaussianNoRep2';
         % How often to save a checkpoint of training
@@ -187,6 +188,27 @@ switch(what)
         load(fullfile(loadDir,thisFile),'net','simparams')
         disp(['Loaded: ' thisFile])
         varargout={net,simparams};
+    case 'Plot_Learningcurve' 
+        networks = {'GaussianNoRep1','GaussianNoRep2','GaussianTest'};
+        E=[]; 
+        for j=1:length(networks)
+            loadDir = [baseDir '/RNNs/' networks{j} '/'];
+            % Get all learning stages 
+            listing = dir(fullfile(loadDir,'hfopt_*.mat'));
+            D=[]; 
+            for i = 1:length(listing)
+                name = listing(i).name;
+                a=textscan(name,['hfopt_' networks{j} '_%d_%f']); 
+                D.network{i,1}=networks{j}; 
+                D.batch(i,1)=double(a{1}); 
+                D.error(i,1)=a{2}; 
+                % T=load(name); 
+                % E=T.net.taskData; 
+            end
+            E=addstruct(E,D); 
+        end; 
+        [a,b,c]=unique(E.network); 
+        lineplot(E.batch,E.error,'split',E.network,'leg','auto','style_thickline');        
     case 'Run_simulation'
         % Run the network on the given input
         % Output:
@@ -222,9 +244,9 @@ switch(what)
                     D.pressOnset(i,press)=t;
                     [~,D.pressMax(i,press)]=max(out(fing,:)); % Only works for 1 press per finger 
                     pressed(fing(1))=1;
-                end;
-            end;
-        end;
+                end
+            end
+        end
         varargout={D};
     case 'Plot_exampletrial'
         % makes a example trial plot
@@ -299,41 +321,66 @@ switch(what)
         H = eye(K)-ones(K)/K;
         C=indicatorMatrix('allpairs',[1:K]);
         stats = 'G'; % 'D' or 'G'
-        vararginoptions(varargin(3:end),{'stats'});
+        vararginoptions(varargin(3:end),{'stats','features'});
+        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0;0.5 0.5 0.5];
         
         G=[];
-        Z=[]; 
+        Z={}; 
+        CAT.color={}; 
+        CAT.linestyle={}; 
         j=1; 
         for i=1:length(features)
-        for i=1:6
-            if (i<6)
-                Z=indicatorMatrix('identity',D.targs(:,i));
-            else
-                Z=eye(K);
-            end;
+            switch(features{i}) 
+                case 'fingers' 
+                    for f=1:5 
+                        Z{j}=indicatorMatrix('identity',D.targs(:,f));
+                        CAT.color{j}=cmap(f,:); 
+                        CAT.linestyle{j}='-' ; 
+                        j=j+1; 
+                    end
+                case 'transitions' 
+                    for f=1:4
+                        trans=[D.targs(:,f) D.targs(:,f+1)]; 
+                        [~,~,transID]=unique(trans,'rows'); 
+                        Z{j}=indicatorMatrix('identity',transID);
+                        CAT.color{j}=cmap(f,:); 
+                        CAT.linestyle{j}='--' ; 
+                        j=j+1; 
+                    end
+                case 'sequence' 
+                    Z{j}=eye(K);
+                    CAT.color{j}=cmap(6,:); 
+                    CAT.linestyle{j}='-' ; 
+                    j=j+1; 
+            end 
+        end
+        for i=1:length(Z)
             switch(stats)
                 case 'D'
-                    Diff = C*Z;
+                    Diff = C*Z{i};
                     G(:,:,i)=squareform(sum(Diff.*Diff,2));
                 case 'G'
-                    G(:,:,i)=H*Z*Z'*H';
+                    G(:,:,i)=H*Z{i}*Z{i}'*H';
             end;
-            subplot(2,5,i);
+            subplot(ceil(length(Z)/5),5,i);
             imagesc(G(:,:,i));
             drawline([24.5:24:100],'dir','vert');
             drawline([24.5:24:100],'dir','horz');
         end;
-        varargout={G};
+        varargout={G,CAT};
     case 'RDM_regression'
         % Color maps for fingers
-        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0;0.5 0.5 0.5];
         type = 1; % 1:latent firing, 3: output firing, 5: latent activity
         timepoints = [5:2:250];
+        features={'fingers'}; 
+        
+        vararginoptions(varargin(3:end),{'features','timepoints'}); 
+        
         D=varargin{1};
         data=varargin{2};
         Gemp = SeqTask('RDM_dynamics',D,data,'stats','G','type',type,'timepoints',timepoints,'doplot',0);
         figure(1);
-        Gmod = SeqTask('RDM_predictions',D,data,'stats','G');
+        [Gmod,CAT] = SeqTask('RDM_models',D,data,'stats','G','features',features);
         for i=1:size(Gmod,3)
             x=Gmod(:,:,i);
             X(:,i)=x(:);
@@ -352,7 +399,7 @@ switch(what)
         % Plot the fitted and total sums of squares
         figure(2);
         for i=1:size(Gmod,3)
-            plot(timepoints,fss(i,:)./tss,'Color',cmap(i,:),'LineWidth',2);
+            plot(timepoints,fss(i,:)./tss,'Color',CAT.color{i},'LineWidth',2,'LineStyle',CAT.linestyle{i});
             hold on;
         end;
         % plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle','-');
@@ -441,4 +488,6 @@ switch(what)
         indx = ~isnan(stampTime);
         legend(h(indx),stampName(indx));
         hold off;
+    case 'motorSpace' 
+        net=varargin{1}; 
 end
