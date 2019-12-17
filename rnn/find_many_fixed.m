@@ -11,6 +11,7 @@ function [fp_struct, fpd] = find_many_fixed(net, niters, xmeans, epsilon, max_ep
 % fval_tol - the minimum value of the fixed point we'll accept.  This is useful for fine control of finding iso-speed contours or extremely accurate
 % fixed points.
 
+display_commandline = 'on';
 display = 'off';			% 'off or 'iter', for example.
 tolx = 1e-16;               % Perhaps overly small, but it's cautious.
 tolfun = 1e-16;             % Perhaps overly small, but it's cautious.
@@ -42,6 +43,8 @@ for i = 1:2:optargin
             do_topo_map = varargin{i+1};
         case 'stabilityanalysis'  % 'compact', 'none'.  Full means eigenvectors, compact means no eigenvectors, only eigenvalues.
             stability_analysis = varargin{i+1};
+        case 'commandlinedisplay'
+            display_commandline = varargin{i+1};
         otherwise
             assert ( false, 'Option not recognized.');
     end
@@ -91,33 +94,46 @@ parfor i = 1:niters
     while 1
         % Find a fixed point nearby.
         start_point = xmeans(:,midx) + myeps*randn(N,1);
-        disp( ['Starting: ' num2str(i) ' with random point having norm: ' num2str(norm(start_point))  '.']);
-        
+        if strcmp(display_commandline, 'on')
+            disp( ['Starting: ' num2str(i) ' with random point having norm: ' num2str(norm(start_point))  '.']);
+        end
         fp_starts{i} = start_point;
         [myfixed,fval, exitflag] = fminunc( @(x) find_one_fp(x, net, const_input, fval_tol, do_topo_map), start_point, optset);
         do_accept_opt_stop = false;
         switch exitflag
             case 1
-                disp('Finished.  Magnitude of gradient smaller than the TolFun tolerance.');
+                if strcmp(display_commandline, 'on')
+                    disp('Finished.  Magnitude of gradient smaller than the TolFun tolerance.');
+                end
                 do_accept_opt_stop = true;
             case 2
-                disp('Finished.  Change in x was smaller than the TolX tolerance.');
+                if strcmp(display_commandline, 'on')
+                    disp('Finished.  Change in x was smaller than the TolX tolerance.');
+                end
                 do_accept_opt_stop = true;
             case 3 
-                disp('Finished.  Change in the objective function value was less than the TolFun tolerance.');
+                if strcmp(display_commandline, 'on')
+                    disp('Finished.  Change in the objective function value was less than the TolFun tolerance.');
+                end
                 do_accept_opt_stop = true;
             case 5
-                disp('Finished.  Predicted decrease in the objective function was less than the TolFun tolerance.');
+                if strcmp(display_commandline, 'on')
+                    disp('Finished.  Predicted decrease in the objective function was less than the TolFun tolerance.');
+                end
                 do_accept_opt_stop = true;
             case 0
-                disp('Finished.  Number of iterations exceeded options.MaxIter or number of function evaluations exceeded options.FunEvals.');
+                if strcmp(display_commandline, 'on')
+                    disp('Finished.  Number of iterations exceeded options.MaxIter or number of function evaluations exceeded options.FunEvals.');
+                end
                 if do_topo_map
                     do_accept_opt_stop = true;  % Hard to see how the fval will be less than fval_tol here, but anyways...
                 else
                     do_accept_opt_stop = false;
                 end
             case -1
-                disp('Finished.  Algorithm was terminated by the output function.');
+                if strcmp(display_commandline, 'on')
+                    disp('Finished.  Algorithm was terminated by the output function.');
+                end
                 assert ( false, 'Still not sure what this case is.');
             otherwise
                 assert ( false, 'New exit condition out of the fminunc optimizer front-end.');
@@ -150,7 +166,9 @@ parfor i = 1:niters
                 lvecs{i} = [];
                 npos(i) = 0;
             end
-            disp( ['Finished ' num2str(i) ', ' num2str(npos(i)) ' positive eigenvalues for FP with norm: ' num2str(norm(fixed{i})), '.'] );
+            if strcmp(display_commandline, 'on')
+                disp( ['Finished ' num2str(i) ', ' num2str(npos(i)) ' positive eigenvalues for FP with norm: ' num2str(norm(fixed{i})), '.'] );
+            end
             myeps = epsilon;
             break;
         else
@@ -162,16 +180,24 @@ parfor i = 1:niters
                     fvals(i) = 1e30;
                     fixed{i} = NaN(N,1);
                     npos(i) = 1e30;
-                    disp('Couldn''t find fixed point with desired tolerance. Bailing.');
+                    if strcmp(display_commandline, 'on')
+                        disp('Couldn''t find fixed point with desired tolerance. Bailing.');
+                    end
                     break;
                 end
             end
             if ~do_accept_opt_stop
-                disp(['Try again for ' num2str(i) '. Point with norm ' num2str(norm(myfixed)) ' didn''t meet acceptable optimization termination criteria.']);
-            else                
-               disp(['Try again for ' num2str(i) '. Point with norm ' num2str(norm(myfixed)) ' didn''t meet function tolerance.']);
+               if strcmp(display_commandline, 'on')
+                    disp(['Try again for ' num2str(i) '. Point with norm ' num2str(norm(myfixed)) ' didn''t meet acceptable optimization termination criteria.']);
+               end
+            else   
+                if strcmp(display_commandline, 'on')
+                    disp(['Try again for ' num2str(i) '. Point with norm ' num2str(norm(myfixed)) ' didn''t meet function tolerance.']);
+                end
             end
-            disp(['Epsilon sphere size: ' num2str(myeps)]);
+            if strcmp(display_commandline, 'on')
+                disp(['Epsilon sphere size: ' num2str(myeps)]);
+            end
         end
     end
 end
@@ -196,8 +222,9 @@ for i = 1:niters
     fp_struct(i).FPSearchStart = fp_starts(i);
 end
 
-
-disp('Fixed point search complete.');
+if strcmp(display_commandline, 'on')
+    disp('Fixed point search complete.');
+end
 %end
 
 
