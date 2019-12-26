@@ -5,17 +5,17 @@ baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
 
 switch(what)
     case 'Run_all'
-        % Train a network 
-        simparams=SeqTask('Get_simparamsTrain'); % Get parameters 
-        % Make modifications as desired 
-        SeqTask('trainNetwork',simparams); % Train a network 
+        % Train a network
+        simparams=SeqTask('Get_simparamsTrain'); % Get parameters
+        % Make modifications as desired
+        SeqTask('trainNetwork',simparams); % Train a network
         
-        % Now test it on single trials 
+        % Now test it on single trials
         simparams=SeqTask('Get_simparamsTest');
         [D,v_inputtrain_T,m_targettrain_T]=SeqTask('Get_singleTrialTest',simparams);
         net = SeqTask('Get_network','GaussianNoRep2');
         data = SeqTask('Run_simulation',net,v_inputtrain_T); % Run the simulation of the current network
-        D=SeqTask('performance',data,D);        
+        D=SeqTask('performance',data,D);
     case 'Get_simparamsTrain'
         simparams.name = 'GaussianNoRep2';
         % How often to save a checkpoint of training
@@ -28,14 +28,14 @@ switch(what)
         simparams.numEpisodes = 20;      % Number of Episodes to simulation
         simparams.numTrials = 3;        % How many trials to string together
         simparams.numTargets = 5;       % Number of elements in the sequence
-        simparams.withreplace = false;   % Targets can repeat? 
+        simparams.withreplace = false;   % Targets can repeat?
         simparams.memPeriod = [10 100];  % Range of memory period.
         simparams.preTime = 10; % Time before visual cues
-        simparams.cueOn   = 8; % How long is each sequence cue on? 
+        simparams.cueOn   = 8; % How long is each sequence cue on?
         simparams.cueOff   = 2; % How long is each sequence cue off?
-        simparams.forceWidth= 25; % How long is each force press? 
-        simparams.forceIPI= 10;   % How long between onsets of each press?         
-        simparams.RT = 12;         % From onset of go-cue to beginning of force production 
+        simparams.forceWidth= 25; % How long is each force press?
+        simparams.forceIPI= 10;   % How long between onsets of each press?
+        simparams.RT = 12;         % From onset of go-cue to beginning of force production
         simparams.moveTime = 100; % (simparams.numTargets-1)*simparams.forceIPI+simparams.forceWidth+30; % Total movement time
         simparams.noGoFreq = 0.1; % Frequency of nogo trials
         
@@ -59,7 +59,7 @@ switch(what)
         varargout={simparams};
     case 'trainNetwork'
         doPlot = true; % Make a plot every timestep
-        doParallel = true; % Use parallel pool for training 
+        doParallel = true; % Use parallel pool for training
         simparams=varargin{1};
         N = simparams.N;
         B = simparams.B;
@@ -68,7 +68,7 @@ switch(what)
         dt = simparams.dt;
         tau = simparams.tau;
         
-        % Make the network from scratch 
+        % Make the network from scratch
         layer_sizes = [I N N B];
         h = [1 1 1];
         net = init_rnn(layer_sizes, simparams.layer_types, g, simparams.obj_fun_type, ...
@@ -87,7 +87,7 @@ switch(what)
         net.wc = wc;
         
         % Random initialization of weights: Unpack and repack parameters of
-        % RNN 
+        % RNN
         [n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1] = unpackRNN(net, net.theta);
         m_bz_1 = randn(size(m_bz_1)) / 1e4;
         n_x0_c = randn(size(n_x0_c)) / 1e4;
@@ -100,7 +100,7 @@ switch(what)
         %e = abs(eig(n_Wrr_n));
         %maxENew = max(e);
         net.theta = packRNN(net, n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1);
-
+        
         close all
         mkdir([baseDir '/RNNs/' simparams.name])
         simparams.forwardPass = [];
@@ -126,26 +126,26 @@ switch(what)
             'doplot', doPlot, ...
             'simparams', simparams);
     case 'Get_simparamsTest'
-        % Generates simulation parameters for single trial tyes 
+        % Generates simulation parameters for single trial tyes
         simparams.numTargets=5;
         simparams.numTrials=1;
-        simparams.memPeriod=80; % Fixed memory period 
+        simparams.memPeriod=80; % Fixed memory period
         simparams.numEpisodes = 20;      % Number of Episodes to simulation
         simparams.numTrials = 3;        % How many trials to string together
         simparams.numTargets = 5;       % Number of elements in the sequence
-        simparams.withreplace = false;   % Targets can repeat? 
+        simparams.withreplace = false;   % Targets can repeat?
         simparams.memPeriod = 80;  % Range of memory period.
         simparams.preTime = 10; % Time before visual cues
-        simparams.cueOn   = 8; % How long is each sequence cue on? 
+        simparams.cueOn   = 8; % How long is each sequence cue on?
         simparams.cueOff   = 2; % How long is each sequence cue off?
-        simparams.forceWidth= 25; % How long is each force press? 
-        simparams.forceIPI= 12;   % How long between onsets of each press?         
-        simparams.RT = 12;         % From onset of go-cue to beginning of force production 
+        simparams.forceWidth= 25; % How long is each force press?
+        simparams.forceIPI= 12;   % How long between onsets of each press?
+        simparams.RT = 12;         % From onset of go-cue to beginning of force production
         simparams.moveTime = (simparams.forceWidth+simparams.forceIPI)*simparams.numTargets+20; % Total movement time
-        simparams.noGoFreq=0;   
+        simparams.noGoFreq=0;
         varargout={simparams};
     case 'Get_singleTrialTest'
-        % Get an exhaustive set of trials 
+        % Get an exhaustive set of trials
         simparams=varargin{1};
         D.targs=perms([1:5]);
         N=size(D.targs,1);
@@ -180,35 +180,35 @@ switch(what)
             networknum = varargin{2};
             listing = dir(fullfile(loadDir,sprintf('hfopt_%s_%d_*.mat',name,networknum)));
             if (length(listing)==0)
-                error('file not found'); 
-            else 
+                error('file not found');
+            else
                 thisFile = listing(1).name;
-            end; 
+            end;
         end;
         load(fullfile(loadDir,thisFile),'net','simparams')
         disp(['Loaded: ' thisFile])
         varargout={net,simparams};
-    case 'Plot_Learningcurve' 
+    case 'Plot_Learningcurve'
         networks = {'GaussianNoRep1','GaussianNoRep2','GaussianTest'};
-        E=[]; 
+        E=[];
         for j=1:length(networks)
             loadDir = [baseDir '/RNNs/' networks{j} '/'];
-            % Get all learning stages 
+            % Get all learning stages
             listing = dir(fullfile(loadDir,'hfopt_*.mat'));
-            D=[]; 
+            D=[];
             for i = 1:length(listing)
                 name = listing(i).name;
-                a=textscan(name,['hfopt_' networks{j} '_%d_%f']); 
-                D.network{i,1}=networks{j}; 
-                D.batch(i,1)=double(a{1}); 
-                D.error(i,1)=a{2}; 
-                % T=load(name); 
-                % E=T.net.taskData; 
+                a=textscan(name,['hfopt_' networks{j} '_%d_%f']);
+                D.network{i,1}=networks{j};
+                D.batch(i,1)=double(a{1});
+                D.error(i,1)=a{2};
+                % T=load(name);
+                % E=T.net.taskData;
             end
-            E=addstruct(E,D); 
-        end; 
-        [a,b,c]=unique(E.network); 
-        lineplot(E.batch,E.error,'split',E.network,'leg','auto','style_thickline');        
+            E=addstruct(E,D);
+        end;
+        [a,b,c]=unique(E.network);
+        lineplot(E.batch,E.error,'split',E.network,'leg','auto','style_thickline');
     case 'Run_simulation'
         % Run the network on the given input
         % Output:
@@ -227,8 +227,8 @@ switch(what)
         data = package{1};
         varargout = {data};
     case 'performance'
-        % Rate performance and establish timing 
-        % D=SeqTask('performance',data,D); 
+        % Rate performance and establish timing
+        % D=SeqTask('performance',data,D);
         data = varargin{1};
         D= varargin{2};
         thresh =0.1;
@@ -242,7 +242,7 @@ switch(what)
                     press = press+1;
                     D.press(i,press)=fing(1);
                     D.pressOnset(i,press)=t;
-                    [~,D.pressMax(i,press)]=max(out(fing,:)); % Only works for 1 press per finger 
+                    [~,D.pressMax(i,press)]=max(out(fing,:)); % Only works for 1 press per finger
                     pressed(fing(1))=1;
                 end
             end
@@ -280,9 +280,9 @@ switch(what)
         % Generate a time resolved RDM
         D=varargin{1};
         data = varargin{2};
-        stats = 'G'; % 'D','G' Distance or second moment? 
+        stats = 'G'; % 'D','G' Distance or second moment?
         type = 1; % 1:latent firing, 3: output firing, 5: latent activity
-        timepoints = [2:10:250]; % What timepoints in the simulation 
+        timepoints = [2:10:250]; % What timepoints in the simulation
         cscale  = [0 10];
         doplot = 1;
         vararginoptions(varargin(3:end),{'stats','type','timepoints','cscale','doplot'});
@@ -325,34 +325,34 @@ switch(what)
         cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0;0.5 0.5 0.5];
         
         G=[];
-        Z={}; 
-        CAT.color={}; 
-        CAT.linestyle={}; 
-        j=1; 
+        Z={};
+        CAT.color={};
+        CAT.linestyle={};
+        j=1;
         for i=1:length(features)
-            switch(features{i}) 
-                case 'fingers' 
-                    for f=1:5 
+            switch(features{i})
+                case 'fingers'
+                    for f=1:5
                         Z{j}=indicatorMatrix('identity',D.targs(:,f));
-                        CAT.color{j}=cmap(f,:); 
-                        CAT.linestyle{j}='-' ; 
-                        j=j+1; 
+                        CAT.color{j}=cmap(f,:);
+                        CAT.linestyle{j}='-' ;
+                        j=j+1;
                     end
-                case 'transitions' 
+                case 'transitions'
                     for f=1:4
-                        trans=[D.targs(:,f) D.targs(:,f+1)]; 
-                        [~,~,transID]=unique(trans,'rows'); 
+                        trans=[D.targs(:,f) D.targs(:,f+1)];
+                        [~,~,transID]=unique(trans,'rows');
                         Z{j}=indicatorMatrix('identity',transID);
-                        CAT.color{j}=cmap(f,:); 
-                        CAT.linestyle{j}='--' ; 
-                        j=j+1; 
+                        CAT.color{j}=cmap(f,:);
+                        CAT.linestyle{j}='--' ;
+                        j=j+1;
                     end
-                case 'sequence' 
+                case 'sequence'
                     Z{j}=eye(K);
-                    CAT.color{j}=cmap(6,:); 
-                    CAT.linestyle{j}='-' ; 
-                    j=j+1; 
-            end 
+                    CAT.color{j}=cmap(6,:);
+                    CAT.linestyle{j}='-' ;
+                    j=j+1;
+            end
         end
         for i=1:length(Z)
             switch(stats)
@@ -372,9 +372,9 @@ switch(what)
         % Color maps for fingers
         type = 1; % 1:latent firing, 3: output firing, 5: latent activity
         timepoints = [5:2:250];
-        features={'fingers'}; 
+        features={'fingers'};
         
-        vararginoptions(varargin(3:end),{'features','timepoints'}); 
+        vararginoptions(varargin(3:end),{'features','timepoints'});
         
         D=varargin{1};
         data=varargin{2};
@@ -393,7 +393,7 @@ switch(what)
             beta(:,t)=lsqnonneg(X,y);
             tss(t) = y'*y;
             fss(:,t)=sum(bsxfun(@times,X,beta(:,t)').^2,1);
-            FSS = sum((X*beta).^2); 
+            FSS = sum((X*beta).^2);
         end;
         
         % Plot the fitted and total sums of squares
@@ -407,11 +407,11 @@ switch(what)
         
         drawline([D.cue(1,:) D.gocue(1,:) mean(D.pressMax)]);
         hold off;
-        xlabel('Time'); 
-        ylabel('Proportion variance explained'); 
+        xlabel('Time');
+        ylabel('Proportion variance explained');
     case 'State_Space_Plot'
         % Makes a state-space plot of neuronal trajectories in a specified
-        % time window 
+        % time window
         % SeqTask('State_Space_Plot',D,data,'timeRange',[160:250])
         D=varargin{1};
         data = varargin{2};
@@ -488,6 +488,6 @@ switch(what)
         indx = ~isnan(stampTime);
         legend(h(indx),stampName(indx));
         hold off;
-    case 'motorSpace' 
-        net=varargin{1}; 
+    case 'motorSpace'
+        net=varargin{1};
 end
