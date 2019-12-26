@@ -415,7 +415,7 @@ switch(what)
         % SeqTask('State_Space_Plot',D,data,'timeRange',[160:250])
         D=varargin{1};
         data = varargin{2};
-        
+        type =1; % 1: activity 3:output 5:
         K= size(D.episode,1);
         T= size(data{1}{1},2);
         dimensions = 3;
@@ -453,7 +453,7 @@ switch(what)
         
         % Condense data
         for i=1:length(data)
-            Z(:,:,i) = data{i}{1};
+            Z(:,:,i) = data{i}{type};
         end;
         
         % Do the PCA
@@ -488,6 +488,60 @@ switch(what)
         indx = ~isnan(stampTime);
         legend(h(indx),stampName(indx));
         hold off;
+    case 'State_Space_movement' 
+        % Analyze the state-space trajectories with peak forces 
+        D=varargin{1};
+        data = varargin{2};
+        type =1; % 1: activity 3:output 5:
+        K= size(D.episode,1);
+        timeRange = round(mean([D.pressMax(:,1)-14 D.pressMax D.pressMax(:,5)+14]));
+        contrast = 'all';
+        % Color maps for fingers
+        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0];
+        
+        vararginoptions(varargin(3:end));
+        
+        % Condense data
+        for i=1:length(data)
+            n=length(timeRange); % Length of a single trial 
+            in = [1:n]+(i-1)*n; 
+            Z(in,:) = data{i}{type}(:,timeRange)';
+            T.Press(in,1) = [0 D.press(i,:) 0];
+            T.Prev(in,1) = [0 0 D.press(i,:)]; 
+            T.Next(in,1) = [D.press(i,:) 0 0]; 
+            T.pressNum(in,1) = [0:6]; 
+            T.trial(in,1) = ones(1,n)*i;  
+        end
+        Z = bsxfun(@minus,Z,mean(Z));
+        
+        % Maximize the eigenvalues to maximize a certain contrast 
+        N=size(T.trial,1); 
+        switch (contrast)
+            case 'all' 
+                contrast= eye(N); 
+            case 'currentFinger' 
+                contrast=indicatorMatrix('identity_p',T.Press); 
+            case 'trialPhase'
+                contrast=indicatorMatrix('identity',T.pressNum); 
+        end; 
+        H = contrast*pinv(contrast);  % Projection matrix 
+        [V,L]=eig(conj(Z)'*H'*H*Z); 
+        [l,i]   = sort(real(diag(L)),1,'descend');           % Sort the eigenvalues
+        V       = V(:,i); 
+        score   = Z*V(:,1:3); 
+        pc = reshape(score', [3 n K]);
+        
+        % Plot the trajectories and the markers
+        for cond = 1:K
+            plot3(pc(1,:,cond), pc(2,:,cond), pc(3,:,cond),'Color',[0.5 0.5 0.5]);
+            hold on;
+        end
+        for i=[1:5]
+            indx = find(T.Press==i); 
+            h=plot3(score(indx,1), score(indx,2), score(indx,3),'o','MarkerFaceColor',cmap(i,:),'Color',cmap(i,:));
+        end; 
+        hold off;
+
     case 'motorSpace' 
         net=varargin{1}; 
 end
