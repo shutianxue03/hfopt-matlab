@@ -19,8 +19,10 @@ if do_inputs
                 D.noGo(tr,1) = true;
             end
             
+            D.numTargets(tr,:)=simparams.numTargets(unidrnd(length(simparams.numTargets)));
             % Determine targets
-            D.targs(tr,:) = randsample(5,simparams.numTargets,simparams.withreplace);
+            D.targs(tr,1:5)=NaN; 
+            D.targs(tr,1:D.numTargets(tr,:)) = simparams.targetset(randsample(length(simparams.targetset),D.numTargets(tr,:),simparams.withreplace));
             % Memory interval length
             if (length(simparams.memPeriod)==1) 
                 D.memLength(tr,1) = simparams.memPeriod(1);
@@ -38,4 +40,4 @@ end
 % Produce the desired outout
 if do_targets
     m_targettrain_T = SeqTask_taskfun_outputs(net.taskData,simparams);
-end
+end; 

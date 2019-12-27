@@ -6,8 +6,9 @@ baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
 switch(what)
     case 'Run_all'
         % Train a network
-        simparams=SeqTask('Get_simparamsTrain'); % Get parameters
-        % Make modifications as desired
+        simparams=SeqTask('Get_simparamsTrain','Gaussian3Rep'); % Get parameters
+        SeqTask('trainNetwork',simparams); % Train a network
+        simparams=SeqTask('Get_simparamsTrain','Gaussian3Flex'); % Get parameters
         SeqTask('trainNetwork',simparams); % Train a network
         
         % Now test it on single trials
@@ -16,8 +17,10 @@ switch(what)
         net = SeqTask('Get_network','GaussianNoRep2');
         data = SeqTask('Run_simulation',net,v_inputtrain_T); % Run the simulation of the current network
         D=SeqTask('performance',data,D);
+        data = SeqTask('supplement_data',data,D,net);
     case 'Get_simparamsTrain'
-        simparams.name = 'GaussianNoRep2';
+        
+        simparams.name = varargin{1};
         % How often to save a checkpoint of training
         simparams.saveEvery = 5;
         % Which task to run
@@ -25,9 +28,11 @@ switch(what)
         % Plotting function during training
         simparams.plotfun = @SeqTask_hfopt_Plot;
         
-        simparams.numEpisodes = 20;      % Number of Episodes to simulation
+        simparams.numEpisodes = 20;     % Number of Episodes to simulation
         simparams.numTrials = 3;        % How many trials to string together
         simparams.numTargets = 5;       % Number of elements in the sequence
+        simparams.targetset = [1:5];    % What are the possible targets? 
+        
         simparams.withreplace = false;   % Targets can repeat?
         simparams.memPeriod = [10 100];  % Range of memory period.
         simparams.preTime = 10; % Time before visual cues
@@ -38,7 +43,7 @@ switch(what)
         simparams.RT = 12;         % From onset of go-cue to beginning of force production
         simparams.moveTime = 100; % (simparams.numTargets-1)*simparams.forceIPI+simparams.forceWidth+30; % Total movement time
         simparams.noGoFreq = 0.1; % Frequency of nogo trials
-        
+
         % Network size parameters
         simparams.N = 100; % Number of neurons
         simparams.B = 5;   % Number of outputs (5 fingers)
@@ -56,6 +61,23 @@ switch(what)
         simparams.wc = 0; % cost on square of input and output weights
         simparams.firingrate = 0; % cost on firing rate
         simparams.Frob = 0; % cost on trajectory complexity
+        
+        switch (simparams.name) 
+            case 'GaussianNoRep1'
+                simparams.forceIPI= 12;   % How long between onsets of each press?
+            case 'GaussianNoRep2'
+                simparams.forceIPI= 10;   % How long between onsets of each press?
+            case 'Gaussian3NoRep'
+                simparams.targetset = [1:3];   % What are the possible targets? 
+                simparams.withreplace = false;   % Targets can repeat?
+            case 'Gaussian3Rep'
+                simparams.targetset = [1:3];   % What are the possible targets? 
+                simparams.withreplace = true;   % Targets can repeat?
+            case 'Gaussian3Flex'
+                simparams.numTargets = [1 3 5]; %possible numbers of targets
+                simparams.targetset = [1:3];   % What are the possible targets? 
+                simparams.withreplace = true;   % Targets can repeat?
+        end
         varargout={simparams};
     case 'trainNetwork'
         doPlot = true; % Make a plot every timestep
@@ -226,12 +248,33 @@ switch(what)
             [], [], 'doparallel', true, 'dowrappers', false);
         data = package{1};
         varargout = {data};
+    case 'supplement_data'
+        % Calculates some supplements on the data
+        % Data{episode}{1} = Firing of latent units across time (after nonlinearity)
+        % Data{episode}{3} = Firing rate of output units
+        % Data{episode}{4} = Firing of latent units - weighted by output weights
+        % Data{episode}{5} = Activity of latent units (before nonlinearity)
+        % Data{episode}{6} = Activity of output units (before nonlinearity)
+        data = varargin{1};
+        D    = varargin{2};
+        net  = varargin{3};
+        N=numel(data);
+        [n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1] = unpackRNN(net, net.theta);
+        % Output weighting: 
+        outW=sqrt(sum(m_Wzr_n.^2,1)); 
+        
+        for n=1:N
+            data{n}{4}=bsxfun(@times,outW',data{n}{1});
+            data{n}{6}=bsxfun(@plus,m_Wzr_n*data{n}{1},m_bz_1);
+        end;
+        varargout={data};
+        
     case 'performance'
         % Rate performance and establish timing
         % D=SeqTask('performance',data,D);
         data = varargin{1};
         D= varargin{2};
-        thresh =0.1;
+        thresh =0.4;
         for i=1:length(data)
             out=data{i}{3};
             pressed=zeros(5,1);
@@ -254,7 +297,9 @@ switch(what)
         D=varargin{1};
         inp = varargin{2};
         data=varargin{3};
-        tn = varargin{4};
+        tn = 1;
+        type =1;
+        vararginoptions(varargin(4:end),{'tn','type'});
         t = [1:size(inp{tn},2)];
         subplot(3,1,1)
         ylabel('Input')
@@ -275,6 +320,17 @@ switch(what)
             hold on;
         end;
         hold off;
+        set(gca,'XLim',[1 max(t)]);
+        subplot(3,1,3)
+        if (size(data{tn}{type},1)==5)
+            for j=1:5
+                plot(t, data{tn}{type}(j,:),cmap{j},'LineWidth',2);
+                hold on;
+            end;
+            hold off;
+        else
+            plot(t, data{tn}{type});
+        end;
         set(gca,'XLim',[1 max(t)]);
     case 'RDM_dynamics'
         % Generate a time resolved RDM
@@ -336,6 +392,7 @@ switch(what)
                         Z{j}=indicatorMatrix('identity',D.targs(:,f));
                         CAT.color{j}=cmap(f,:);
                         CAT.linestyle{j}='-' ;
+                        CAT.leg{j}=sprintf('f%d',f);
                         j=j+1;
                     end
                 case 'transitions'
@@ -345,12 +402,14 @@ switch(what)
                         Z{j}=indicatorMatrix('identity',transID);
                         CAT.color{j}=cmap(f,:);
                         CAT.linestyle{j}='--' ;
+                        CAT.leg{j}=sprintf('t%d',f);
                         j=j+1;
                     end
                 case 'sequence'
                     Z{j}=eye(K);
                     CAT.color{j}=cmap(6,:);
-                    CAT.linestyle{j}='-' ;
+                    CAT.linestyle{j}=':' ;
+                    CAT.leg{j}='seq';
                     j=j+1;
             end
         end
@@ -391,19 +450,27 @@ switch(what)
             y=Gemp(:,:,t);
             y=y(:);
             beta(:,t)=lsqnonneg(X,y);
-            tss(t) = y'*y;
-            fss(:,t)=sum(bsxfun(@times,X,beta(:,t)').^2,1);
-            FSS = sum((X*beta).^2);
+            % These are sums of squares of all the entries of the G-matrix
+            % tss(t) = y'*y;
+            % fss(:,t)=sum(bsxfun(@times,X,beta(:,t)').^2,1);
+            % FSS = sum((X*beta).^2);
+            %
+            % Here we use only diagnonal of the G-matrix: Pattern variance
+            tss(t)=trace(Gemp(:,:,t));
+            for i=1:size(Gmod,3);
+                fss(i,t)=trace(Gmod(:,:,i))*beta(i,t);
+            end;
         end;
-        
+        FSS = sum(fss,1);
         % Plot the fitted and total sums of squares
         figure(2);
         for i=1:size(Gmod,3)
-            plot(timepoints,fss(i,:)./tss,'Color',CAT.color{i},'LineWidth',2,'LineStyle',CAT.linestyle{i});
+            plot(timepoints,fss(i,:),'Color',CAT.color{i},'LineWidth',2,'LineStyle',CAT.linestyle{i});
             hold on;
         end;
+        legend(CAT.leg);
         % plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle','-');
-        plot(timepoints,FSS./tss,'Color',[0 0 0],'LineWidth',1,'LineStyle',':');
+        plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle',':');
         
         drawline([D.cue(1,:) D.gocue(1,:) mean(D.pressMax)]);
         hold off;
@@ -488,47 +555,56 @@ switch(what)
         indx = ~isnan(stampTime);
         legend(h(indx),stampName(indx));
         hold off;
-    case 'State_Space_movement' 
-        % Analyze the state-space trajectories with peak forces 
+    case 'Movement_data'
+        % Analyze the state-space trajectories with peak forces
         D=varargin{1};
         data = varargin{2};
         type =1; % 1: activity 3:output 5:
         K= size(D.episode,1);
         timeRange = round(mean([D.pressMax(:,1)-14 D.pressMax D.pressMax(:,5)+14]));
-        contrast = 'all';
-        % Color maps for fingers
-        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0];
         
-        vararginoptions(varargin(3:end));
+        vararginoptions(varargin(3:end),{'type'});
         
         % Condense data
         for i=1:length(data)
-            n=length(timeRange); % Length of a single trial 
-            in = [1:n]+(i-1)*n; 
+            n=length(timeRange); % Length of a single trial
+            in = [1:n]+(i-1)*n;
             Z(in,:) = data{i}{type}(:,timeRange)';
             T.Press(in,1) = [0 D.press(i,:) 0];
-            T.Prev(in,1) = [0 0 D.press(i,:)]; 
-            T.Next(in,1) = [D.press(i,:) 0 0]; 
-            T.pressNum(in,1) = [0:6]; 
-            T.trial(in,1) = ones(1,n)*i;  
+            T.Prev(in,1) = [0 0 D.press(i,:)];
+            T.Next(in,1) = [D.press(i,:) 0 0];
+            T.pressNum(in,1) = [0:6];
+            T.trial(in,1) = ones(1,n)*i;
         end
         Z = bsxfun(@minus,Z,mean(Z));
+        varargout={T,Z};
+    case 'Movement_state_space'
+        % [T,Z]=SeqTask('Movement_data',D,data);
+        % SeqTask('Movement_state_space',T,Z);
+        T=varargin{1};
+        Z=varargin{2};
+        contrast = 'all';
+        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0];
+        vararginoptions(varargin(3:end));
+        % Maximize the eigenvalues to maximize a certain contrast
+        N=size(T.trial,1);
+        K=max(T.trial);
+        n=N/K;
         
-        % Maximize the eigenvalues to maximize a certain contrast 
-        N=size(T.trial,1); 
+        
         switch (contrast)
-            case 'all' 
-                contrast= eye(N); 
-            case 'currentFinger' 
-                contrast=indicatorMatrix('identity_p',T.Press); 
+            case 'all'
+                contrast= eye(N);
+            case 'currentFinger'
+                contrast=indicatorMatrix('identity_p',T.Press);
             case 'trialPhase'
-                contrast=indicatorMatrix('identity',T.pressNum); 
-        end; 
-        H = contrast*pinv(contrast);  % Projection matrix 
-        [V,L]=eig(conj(Z)'*H'*H*Z); 
+                contrast=indicatorMatrix('identity',T.pressNum);
+        end;
+        H = contrast*pinv(contrast);  % Projection matrix
+        [V,L]=eig(conj(Z)'*H'*H*Z);
         [l,i]   = sort(real(diag(L)),1,'descend');           % Sort the eigenvalues
-        V       = V(:,i); 
-        score   = Z*V(:,1:3); 
+        V       = V(:,i);
+        score   = Z*V(:,1:3);
         pc = reshape(score', [3 n K]);
         
         % Plot the trajectories and the markers
@@ -537,11 +613,42 @@ switch(what)
             hold on;
         end
         for i=[1:5]
-            indx = find(T.Press==i); 
+            indx = find(T.pressNum==i);
             h=plot3(score(indx,1), score(indx,2), score(indx,3),'o','MarkerFaceColor',cmap(i,:),'Color',cmap(i,:));
-        end; 
+        end;
         hold off;
-
-    case 'motorSpace'
-        net=varargin{1};
+        
+    case 'Movement_RDM'
+        %figure(1);
+        %[T,Z]=SeqTask('Movement_data',D,data,'type',1);
+        %G=SeqTask('Movement_RDM',T,Z,'remove','trialPhase');
+        %figure(2);
+        %[T,Z]=SeqTask('Movement_data',D,data,'type',3);
+        %G=SeqTask('Movement_RDM',T,Z,'remove','trialPhase');
+        
+        T=varargin{1};
+        Z=varargin{2};
+        remove = 'mean';
+        vararginoptions(varargin(3:end),{'remove'});
+        % Sort the data by trial phase
+        [~,j]=sort(T.pressNum);
+        T=getrow(T,j);
+        Z=Z(j,:);
+        
+        N=size(T.trial,1);
+        switch (remove)
+            case 'mean'
+                C=ones(N,1);
+            case 'trialPhase'
+                C=indicatorMatrix('identity',T.pressNum);
+        end;
+        R=eye(N)-C*pinv(C);
+        Gemp=R*Z*Z'*R';
+        imagesc(Gemp);
+        a=find(diff(T.pressNum)~=0);
+        drawline(a,'dir','vert'); 
+        drawline(a,'dir','horz'); 
+        
+        varargout={Gemp};
+        
 end

@@ -1,7 +1,7 @@
 function [m_targettrain_T,D] = SeqTask_taskfun_outputs(D,simparams)
 % Generate inpt time courses for an epsiode of trials
 numtrials = length(D.trial);
-targShape = gausswin(simparams.forceWidth,3);
+targShape = gausswin(simparams.forceWidth,3)';
 targShape = targShape / max(targShape) * 0.6;
 m_targettrain_T={};
 ep = unique(D.episode)';
@@ -15,7 +15,8 @@ for e=ep
             tStart = D.gocue(tn(i),1)+simparams.RT;
             numTargets =sum(~isnan(D.targs(tn(i),:))); 
             for j = 1:numTargets
-                m_targettrain_T{e}(D.targs(tn(i),j), tStart : tStart + length(targShape) - 1) = targShape;
+                previous = m_targettrain_T{e}(D.targs(tn(i),j), tStart : tStart + length(targShape) - 1); 
+                m_targettrain_T{e}(D.targs(tn(i),j), tStart : tStart + length(targShape) - 1) = max(previous,targShape);
                 tStart = tStart + simparams.forceIPI;
             end 
         end
