@@ -31,7 +31,7 @@ switch(what)
         simparams.numEpisodes = 20;     % Number of Episodes to simulation
         simparams.numTrials = 3;        % How many trials to string together
         simparams.numTargets = 5;       % Number of elements in the sequence
-        simparams.targetset = [1:5];    % What are the possible targets? 
+        simparams.targetset = [1:5];    % What are the possible targets?
         
         simparams.withreplace = false;   % Targets can repeat?
         simparams.memPeriod = [10 100];  % Range of memory period.
@@ -43,7 +43,7 @@ switch(what)
         simparams.RT = 12;         % From onset of go-cue to beginning of force production
         simparams.moveTime = 100; % (simparams.numTargets-1)*simparams.forceIPI+simparams.forceWidth+30; % Total movement time
         simparams.noGoFreq = 0.1; % Frequency of nogo trials
-
+        
         % Network size parameters
         simparams.N = 100; % Number of neurons
         simparams.B = 5;   % Number of outputs (5 fingers)
@@ -62,24 +62,28 @@ switch(what)
         simparams.firingrate = 0; % cost on firing rate
         simparams.Frob = 0; % cost on trajectory complexity
         
-        switch (simparams.name) 
+        switch (simparams.name)
             case 'GaussianNoRep1'
                 simparams.forceIPI= 12;   % How long between onsets of each press?
             case 'GaussianNoRep2'
                 simparams.forceIPI= 10;   % How long between onsets of each press?
             case 'Gaussian3NoRep'
-                simparams.targetset = [1:3];   % What are the possible targets? 
+                simparams.targetset = [1:3];   % What are the possible targets?
                 simparams.withreplace = false;   % Targets can repeat?
             case 'Gaussian3Rep'
-                simparams.targetset = [1:3];   % What are the possible targets? 
+                simparams.targetset = [1:3];   % What are the possible targets?
                 simparams.withreplace = true;   % Targets can repeat?
             case 'Gaussian3Rep160'
-                simparams.targetset = [1:3];   % What are the possible targets? 
+                simparams.targetset = [1:3];   % What are the possible targets?
                 simparams.withreplace = true;   % Targets can repeat?
                 simparams.N = 160; % Number of neurons
+            case 'Gaussian3Rep160R'
+                simparams.targetset = [1:3];   % What are the possible targets?
+                simparams.withreplace = true;   % Targets can repeat?
+                simparams.N = [80 80]; % Number of neurons getting only input vs. only output
             case 'Gaussian3Flex'
                 simparams.numTargets = [1 3 5]; %possible numbers of targets
-                simparams.targetset = [1:3];   % What are the possible targets? 
+                simparams.targetset = [1:3];   % What are the possible targets?
                 simparams.withreplace = true;   % Targets can repeat?
         end
         varargout={simparams};
@@ -87,7 +91,7 @@ switch(what)
         doPlot = true; % Make a plot every timestep
         doParallel = true; % Use parallel pool for training
         simparams=varargin{1};
-        N = simparams.N;
+        N = sum(simparams.N);  % Total number of units
         B = simparams.B;
         I = simparams.I;
         g = simparams.g;
@@ -125,6 +129,23 @@ switch(what)
         %n_Wrr_n = n_Wrr_n / maxE * g;
         %e = abs(eig(n_Wrr_n));
         %maxENew = max(e);
+        
+        if (length(simparams.N)>1) % This means not a fully connected network in terms of inputs and outputs
+            nparams_cumsum = cumsum([net.layers.nParams]);
+            nparams_cumsum = [0 nparams_cumsum];
+
+            % Restrict input to first N(1) units 
+            n_Wru_v(simparams.N(1)+1:end,:)=0; % Set input weights to 0 
+            indx = find(n_Wru_v==0); 
+            mask_start_idx = nparams_cumsum(1);
+            net.modMask(indx+mask_start_idx)=0; % No modification 
+            
+            % Restrict output to last N(1) units 
+            m_Wzr_n(:,1:end-simparams.N(2))=0;  
+            indx = find(m_Wzr_n==0); 
+            mask_start_idx = nparams_cumsum(3);
+            net.modMask(indx+mask_start_idx)=0; % No modification 
+        end
         net.theta = packRNN(net, n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1);
         
         close all
@@ -216,6 +237,7 @@ switch(what)
         varargout={net,simparams};
     case 'Plot_Learningcurve'
         networks = {'GaussianNoRep1','GaussianNoRep2','GaussianTest'};
+        vararginoptions(varargin,{'networks'});
         E=[];
         for j=1:length(networks)
             loadDir = [baseDir '/RNNs/' networks{j} '/'];
@@ -264,8 +286,8 @@ switch(what)
         net  = varargin{3};
         N=numel(data);
         [n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1] = unpackRNN(net, net.theta);
-        % Output weighting: 
-        outW=sqrt(sum(m_Wzr_n.^2,1)); 
+        % Output weighting:
+        outW=sqrt(sum(m_Wzr_n.^2,1));
         
         for n=1:N
             data{n}{4}=bsxfun(@times,outW',data{n}{1});
@@ -445,7 +467,7 @@ switch(what)
                     
                 case 'G'
                     G(:,:,i)=H*Z{i}*Z{i}'*H';
-                    G(:,:,i)=G(:,:,i)./trace(G(:,:,i)); 
+                    G(:,:,i)=G(:,:,i)./trace(G(:,:,i));
             end;
             subplot(ceil(length(Z)/5),5,i);
             imagesc(G(:,:,i));
@@ -672,8 +694,8 @@ switch(what)
         Gemp=R*Z*Z'*R';
         imagesc(Gemp);
         a=find(diff(T.pressNum)~=0);
-        drawline(a,'dir','vert'); 
-        drawline(a,'dir','horz'); 
+        drawline(a,'dir','vert');
+        drawline(a,'dir','horz');
         
         varargout={Gemp};
         
