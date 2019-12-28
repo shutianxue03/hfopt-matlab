@@ -73,6 +73,10 @@ switch(what)
             case 'Gaussian3Rep'
                 simparams.targetset = [1:3];   % What are the possible targets? 
                 simparams.withreplace = true;   % Targets can repeat?
+            case 'Gaussian3Rep160'
+                simparams.targetset = [1:3];   % What are the possible targets? 
+                simparams.withreplace = true;   % Targets can repeat?
+                simparams.N = 160; % Number of neurons
             case 'Gaussian3Flex'
                 simparams.numTargets = [1 3 5]; %possible numbers of targets
                 simparams.targetset = [1:3];   % What are the possible targets? 
@@ -378,7 +382,7 @@ switch(what)
         C=indicatorMatrix('allpairs',[1:K]);
         stats = 'G'; % 'D' or 'G'
         vararginoptions(varargin(3:end),{'stats','features'});
-        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0;0.5 0.5 0.5];
+        cmap= [1 0 0;0.3 0 0.3;0 0 1;0 1 1;0 0.4 0;0.5 0.5 0.5];
         
         G=[];
         Z={};
@@ -405,6 +409,26 @@ switch(what)
                         CAT.leg{j}=sprintf('t%d',f);
                         j=j+1;
                     end
+                case 'endSeq'
+                    for f=1:4
+                        trans=D.targs(:,f+1:5);
+                        [~,~,transID]=unique(trans,'rows');
+                        Z{j}=indicatorMatrix('identity',transID);
+                        CAT.color{j}=cmap(f,:);
+                        CAT.linestyle{j}='--' ;
+                        CAT.leg{j}=sprintf('t%d',f);
+                        j=j+1;
+                    end
+                case 'startSeq'
+                    for f=1:4
+                        trans=D.targs(:,1:f);
+                        [~,~,transID]=unique(trans,'rows');
+                        Z{j}=indicatorMatrix('identity',transID);
+                        CAT.color{j}=cmap(f,:);
+                        CAT.linestyle{j}='--' ;
+                        CAT.leg{j}=sprintf('t%d',f);
+                        j=j+1;
+                    end
                 case 'sequence'
                     Z{j}=eye(K);
                     CAT.color{j}=cmap(6,:);
@@ -418,8 +442,10 @@ switch(what)
                 case 'D'
                     Diff = C*Z{i};
                     G(:,:,i)=squareform(sum(Diff.*Diff,2));
+                    
                 case 'G'
                     G(:,:,i)=H*Z{i}*Z{i}'*H';
+                    G(:,:,i)=G(:,:,i)./trace(G(:,:,i)); 
             end;
             subplot(ceil(length(Z)/5),5,i);
             imagesc(G(:,:,i));
@@ -433,7 +459,7 @@ switch(what)
         timepoints = [5:2:250];
         features={'fingers'};
         
-        vararginoptions(varargin(3:end),{'features','timepoints'});
+        vararginoptions(varargin(3:end),{'type','features','timepoints'});
         
         D=varargin{1};
         data=varargin{2};
@@ -465,11 +491,11 @@ switch(what)
         % Plot the fitted and total sums of squares
         figure(2);
         for i=1:size(Gmod,3)
-            plot(timepoints,fss(i,:),'Color',CAT.color{i},'LineWidth',2,'LineStyle',CAT.linestyle{i});
+            plot(timepoints,fss(i,:),'Color',CAT.color{i},'LineWidth',3,'LineStyle',CAT.linestyle{i});
             hold on;
         end;
         legend(CAT.leg);
-        % plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle','-');
+        plot(timepoints,FSS,'Color',[1 0 0],'LineWidth',1,'LineStyle',':');
         plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle',':');
         
         drawline([D.cue(1,:) D.gocue(1,:) mean(D.pressMax)]);
@@ -497,7 +523,7 @@ switch(what)
         stampColor = [0 0 0;cmap;0.7 0.7 0.7;0 1 0;cmap;0 0 0];
         stampName = {'start','D1','D2','D3','D4','D5','cueend','Go','P1','P2','P3','P4','P5','end'};
         
-        vararginoptions(varargin(3:end));
+        vararginoptions(varargin(3:end),{'type','timeRange'});
         
         % Adjust the timing symbols to current time window
         stampTime(1) = timeRange(1);
