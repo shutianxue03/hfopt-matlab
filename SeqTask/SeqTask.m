@@ -12,7 +12,7 @@ switch(what)
         SeqTask('trainNetwork',simparams); % Train a network
         
         % Now test it on single trials
-        simparams=SeqTask('Get_simparamsTest');
+        simparams=SeqTask('Get_simparamsTest','Gaussian5NoRep');
         [D,v_inputtrain_T,m_targettrain_T]=SeqTask('Get_singleTrialTest',simparams);
         net = SeqTask('Get_network','GaussianNoRep2');
         data = SeqTask('Run_simulation',net,v_inputtrain_T); % Run the simulation of the current network
@@ -174,7 +174,7 @@ switch(what)
             'simparams', simparams);
     case 'Get_simparamsTest'
         % Generates simulation parameters for single trial tyes
-        simparams.numTargets=5;
+        type=varargin{1}; 
         simparams.numTrials=1;
         simparams.memPeriod=80; % Fixed memory period
         simparams.numEpisodes = 20;      % Number of Episodes to simulation
@@ -186,15 +186,35 @@ switch(what)
         simparams.cueOn   = 8; % How long is each sequence cue on?
         simparams.cueOff   = 2; % How long is each sequence cue off?
         simparams.forceWidth= 25; % How long is each force press?
-        simparams.forceIPI= 12;   % How long between onsets of each press?
+        simparams.forceIPI= 10;   % How long between onsets of each press?
         simparams.RT = 12;         % From onset of go-cue to beginning of force production
         simparams.moveTime = (simparams.forceWidth+simparams.forceIPI)*simparams.numTargets+20; % Total movement time
         simparams.noGoFreq=0;
+        switch (type) 
+            case 'Gaussian5NoRep'
+                simparams.numTargets=5;
+                simparams.targetset = [1:5];   % What are the possible targets?
+                simparams.withreplace = false;   % Targets can repeat?
+            case 'Gaussian3Rep' 
+                simparams.numTargets=5;
+                simparams.targetset = [1:3];   % What are the possible targets?
+                simparams.withreplace = true;   % Targets can repeat?                
+        end
         varargout={simparams};
     case 'Get_singleTrialTest'
         % Get an exhaustive set of trials
         simparams=varargin{1};
-        D.targs=perms([1:5]);
+        
+        if (simparams.withreplace) 
+            K=length(simparams.targetset); 
+            D.targs(1:K,1)=simparams.targetset; 
+            for i=1:simparams.numTargets-1
+                N=size(D.targs,1); 
+                D.targs=[kron(simparams.targetset',ones(N,1)) repmat(D.targs,K,1)]; 
+            end
+        else 
+            D.targs=perms(simparams.targetset);
+        end 
         N=size(D.targs,1);
         D.episode = [1:N]';
         D.trial = ones(N,1);
@@ -303,16 +323,15 @@ switch(what)
         thresh =0.4;
         for i=1:length(data)
             out=data{i}{3};
-            pressed=zeros(5,1);
             press = 0;
-            for t=D.gocue(i):size(out,2);
-                fing = find(pressed==0 & out(:,t)>thresh);
+            for t=D.gocue(i):size(out,2)
+                fing = find(out(:,t-1)<thresh & out(:,t)>thresh);
                 if ~isempty(fing)
                     press = press+1;
                     D.press(i,press)=fing(1);
                     D.pressOnset(i,press)=t;
-                    [~,D.pressMax(i,press)]=max(out(fing,:)); % Only works for 1 press per finger
-                    pressed(fing(1))=1;
+                    [~,x]=max(out(fing,t:t+8)); % Only works for 1 press per finger
+                    D.pressMax(i,press)=t+x-1; 
                 end
             end
         end
@@ -480,8 +499,9 @@ switch(what)
         type = 1; % 1:latent firing, 3: output firing, 5: latent activity
         timepoints = [5:2:250];
         features={'fingers'};
+        normalize=0; 
         
-        vararginoptions(varargin(3:end),{'type','features','timepoints'});
+        vararginoptions(varargin(3:end),{'type','features','timepoints','normalize'});
         
         D=varargin{1};
         data=varargin{2};
@@ -511,14 +531,19 @@ switch(what)
         end;
         FSS = sum(fss,1);
         % Plot the fitted and total sums of squares
+        if (normalize)
+            fss=bsxfun(@rdivide,fss,FSS); 
+        end
         figure(2);
         for i=1:size(Gmod,3)
             plot(timepoints,fss(i,:),'Color',CAT.color{i},'LineWidth',3,'LineStyle',CAT.linestyle{i});
             hold on;
-        end;
+        end
         legend(CAT.leg);
-        plot(timepoints,FSS,'Color',[1 0 0],'LineWidth',1,'LineStyle',':');
-        plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle',':');
+        if (~normalize) 
+            plot(timepoints,FSS,'Color',[1 0 0],'LineWidth',1,'LineStyle',':');
+            plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle',':');
+        end; 
         
         drawline([D.cue(1,:) D.gocue(1,:) mean(D.pressMax)]);
         hold off;
@@ -535,7 +560,7 @@ switch(what)
         T= size(data{1}{1},2);
         dimensions = 3;
         timeRange = [1:T-20];
-        
+        colorByPress = 1; % Determine color of line by press
         % Color maps for fingers
         cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0];
         
@@ -545,7 +570,7 @@ switch(what)
         stampColor = [0 0 0;cmap;0.7 0.7 0.7;0 1 0;cmap;0 0 0];
         stampName = {'start','D1','D2','D3','D4','D5','cueend','Go','P1','P2','P3','P4','P5','end'};
         
-        vararginoptions(varargin(3:end),{'type','timeRange'});
+        vararginoptions(varargin(3:end),{'type','timeRange','colorByPress'});
         
         % Adjust the timing symbols to current time window
         stampTime(1) = timeRange(1);
@@ -588,7 +613,7 @@ switch(what)
             endCue = D.cueend(1)-timeRange(1)+1;
             endTrial = length(timeRange);
             if dimensions == 3
-                plot3(pc(1,:,cond), pc(2,:,cond), pc(3,:,cond), 'Color', cmapTrial(cond,:,1));
+                plot3(pc(1,:,cond), pc(2,:,cond), pc(3,:,cond), 'Color', cmapTrial(cond,:,colorByPress));
                 hold on;
                 % Generate the stamp symbols
                 for i=1:length(stampTime)
