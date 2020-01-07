@@ -1,4 +1,4 @@
-function varargout=SeqTask(what,varargin)
+function varargout=ContTask(what,varargin)
 % Different functions for the evaluation of
 % Different neuronal networks
 baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
@@ -24,28 +24,24 @@ switch(what)
         % How often to save a checkpoint of training
         simparams.saveEvery = 5;
         % Which task to run
-        simparams.taskfun = @SeqTask_taskfun_gaussian; % or @SeqTask_taskfun_threshold
+        simparams.taskfun = @ContTask_taskfun; % or @SeqTask_taskfun_threshold
         % Plotting function during training
-        simparams.plotfun = @SeqTask_hfopt_Plot;
+        simparams.plotfun = @ContTask_hfopt_Plot;
         
-        simparams.numEpisodes = 20;     % Number of Episodes to simulation
-        simparams.numTrials = 3;        % How many trials to string together
-        simparams.numTargets = 5;       % Number of elements in the sequence
-        simparams.targetset = [1:5];    % What are the possible targets?
-        
-        simparams.withreplace = false;   % Targets can repeat?
-        simparams.memPeriod = [10 100];  % Range of memory period.
+        simparams.numTrials = 20;       % Number of Episodes to simulation
+        simparams.numTargets = 15;      % Number of elements in the sequence
+        simparams.targetset = [1:3];    % What are the possible targets?
+        % Timing 
         simparams.preTime = 10; % Time before visual cues
-        simparams.cueOn   = 8; % How long is each sequence cue on?
-        simparams.cueOff   = 2; % How long is each sequence cue off?
-        simparams.forceWidth= 25; % How long is each force press?
-        simparams.forceIPI= 10;   % How long between onsets of each press?
+        simparams.cueDur = 10; % How long is each cue on?
+        simparams.cue2go = [10 40];  % Range of cue-2-go period 
         simparams.RT = 12;         % From onset of go-cue to beginning of force production
-        simparams.moveTime = 100; % (simparams.numTargets-1)*simparams.forceIPI+simparams.forceWidth+30; % Total movement time
-        simparams.noGoFreq = 0.1; % Frequency of nogo trials
+        simparams.forceWidth= 25; % How long is each force press?
+        simparams.press2cue = [10 40]; % end of press to onset of new cue
+        simparams.memoryspan = 3; 
         
         % Network size parameters
-        simparams.N = 100; % Number of neurons
+        simparams.N = 160; % Number of neurons
         simparams.B = 5;   % Number of outputs (5 fingers)
         simparams.I = simparams.B + 1; % desired output + go signal
         simparams.layer_types = {'linear', 'recttanh', 'rectlinear'}; % input / hidden / output layer activation functions
@@ -63,115 +59,12 @@ switch(what)
         simparams.Frob = 0; % cost on trajectory complexity
         
         switch (simparams.name)
-            case 'GaussianNoRep1'
-                simparams.forceIPI= 12;   % How long between onsets of each press?
-            case 'GaussianNoRep2'
-                simparams.forceIPI= 10;   % How long between onsets of each press?
-            case 'Gaussian3NoRep'
-                simparams.targetset = [1:3];   % What are the possible targets?
-                simparams.withreplace = false;   % Targets can repeat?
-            case 'Gaussian3Rep'
-                simparams.targetset = [1:3];   % What are the possible targets?
-                simparams.withreplace = true;   % Targets can repeat?
-            case 'Gaussian3Rep160'
-                simparams.targetset = [1:3];   % What are the possible targets?
-                simparams.withreplace = true;   % Targets can repeat?
-                simparams.N = 160; % Number of neurons
-            case 'Gaussian3Rep160R'
-                simparams.targetset = [1:3];   % What are the possible targets?
-                simparams.withreplace = true;   % Targets can repeat?
-                simparams.N = [80 80]; % Number of neurons getting only input vs. only output
-            case 'Gaussian3Flex'
-                simparams.numTargets = [1 3 5]; %possible numbers of targets
-                simparams.targetset = [1:3];   % What are the possible targets?
-                simparams.withreplace = true;   % Targets can repeat?
+            case 'Cont_M1'
+                simparams.memoryspan = 3; 
+            case 'Cont_M2'
+                simparams.memoryspan = 3; 
         end
         varargout={simparams};
-    case 'trainNetwork'
-        doPlot = true; % Make a plot every timestep
-        doParallel = true; % Use parallel pool for training
-        simparams=varargin{1};
-        N = sum(simparams.N);  % Total number of units
-        B = simparams.B;
-        I = simparams.I;
-        g = simparams.g;
-        dt = simparams.dt;
-        tau = simparams.tau;
-        
-        % Make the network from scratch
-        layer_sizes = [I N N B];
-        h = [1 1 1];
-        net = init_rnn(layer_sizes, simparams.layer_types, g, simparams.obj_fun_type, ...
-            'tau', tau, 'dt', dt, 'numconn', Inf, 'dolearnstateinit', 1, 'dolearnbiases', 1, 'mu', 1, ...
-            'costmaskfacbylayer', [1 0 1], 'modmaskbylayer', [1 1 1], ...
-            'doinitstateinitrandom', 0, 'doinitstatebiasesrandom', 0, 'h', h, ...
-            'netnoisesigma', 0);
-        net.hasCanonicalLink = true;
-        net.h = h;
-        net.g = g;
-        net.frobeniusNormRecRecRegularizer = simparams.Frob;
-        net.firingRateMean.weight = simparams.firingrate;
-        net.firingRateMean.desiredValue = 0;
-        net.firingRateMean.mask = ones(N,1);
-        wc = simparams.wc;
-        net.wc = wc;
-        
-        % Random initialization of weights: Unpack and repack parameters of
-        % RNN
-        [n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1] = unpackRNN(net, net.theta);
-        m_bz_1 = randn(size(m_bz_1)) / 1e4;
-        n_x0_c = randn(size(n_x0_c)) / 1e4;
-        n_bx_1 = randn(size(n_bx_1)) / 1e4;
-        m_Wzr_n = randn(size(m_Wzr_n)) / sqrt(size(m_Wzr_n,2));
-        
-        e = abs(eig(n_Wrr_n));
-        maxE = max(e);
-        %n_Wrr_n = n_Wrr_n / maxE * g;
-        %e = abs(eig(n_Wrr_n));
-        %maxENew = max(e);
-        
-        if (length(simparams.N)>1) % This means not a fully connected network in terms of inputs and outputs
-            nparams_cumsum = cumsum([net.layers.nParams]);
-            nparams_cumsum = [0 nparams_cumsum];
-
-            % Restrict input to first N(1) units 
-            n_Wru_v(simparams.N(1)+1:end,:)=0; % Set input weights to 0 
-            indx = find(n_Wru_v==0); 
-            mask_start_idx = nparams_cumsum(1);
-            net.modMask(indx+mask_start_idx)=0; % No modification 
-            
-            % Restrict output to last N(1) units 
-            m_Wzr_n(:,1:end-simparams.N(2))=0;  
-            indx = find(m_Wzr_n==0); 
-            mask_start_idx = nparams_cumsum(3);
-            net.modMask(indx+mask_start_idx)=0; % No modification 
-        end
-        net.theta = packRNN(net, n_Wru_v, n_Wrr_n, m_Wzr_n, n_x0_c, n_bx_1, m_bz_1);
-        
-        close all
-        mkdir([baseDir '/RNNs/' simparams.name])
-        simparams.forwardPass = [];
-        [~, ~, ~, ~] = hfopt2(net, simparams.taskfun, [], ...
-            [], [], ...
-            'weightcost', net.wc, ... % Cost on weights (wIn^2 + wOut^2)
-            'Sfrac', 1, ... % Fraction of data to use in mini-batch
-            'savepath', [baseDir '/RNNs/' simparams.name '/'], ... % Where to save iterations %
-            'saveevery', simparams.saveEvery, ...
-            'filenamepart', simparams.name, ... % Unique savename identifier
-            'optplotfun', simparams.plotfun, ...
-            'doplotallobjectives', true, ...
-            'displaylevel', 1, ...
-            'maintainDale', false, ...
-            'initlambda', 1e-4, ...
-            'objfuntol', 1e-6, ...
-            'errtol', [0.0 0.0], ...
-            'miniter', 30, ...
-            'doparallelnetwork', doParallel, 'doparallelobjfun', doParallel, ...
-            'doparallelgradient', doParallel, 'doparallelcgafun', doParallel, ...
-            ...   % 'optevalfun', @GNM_optional_eval_fun, ...
-            'maxhfiters', 1000, ...
-            'doplot', doPlot, ...
-            'simparams', simparams);
     case 'Get_simparamsTest'
         % Generates simulation parameters for single trial tyes
         type=varargin{1}; 
@@ -223,38 +116,6 @@ switch(what)
         [v_inputtrain_T,D]=SeqTask_taskfun_inputs(D,simparams);
         m_targettrain_T=SeqTask_taskfun_outputs(D,simparams);
         varargout={D,v_inputtrain_T,m_targettrain_T};
-    case 'Get_network'
-        name = varargin{1};
-        loadDir = [baseDir '/RNNs/' name '/'];
-        % If no number is given, just get the network with the lowest error
-        if (length(varargin)==1)
-            listing = dir(fullfile(loadDir,'hfopt_*.mat'));
-            thisError = [];
-            for i = 1:length(listing)
-                name = listing(i).name;
-                iEnd = length(name)-8;
-                for j = iEnd:-1:1
-                    if strcmp(name(j), '_')
-                        iBegin = j+1;
-                        break
-                    end
-                end
-                thisError(i) = str2double(name(iBegin:iEnd));
-            end
-            [~, loadInd] = min(thisError);
-            thisFile = listing(loadInd).name;
-        else % Otherwise get one specific one
-            networknum = varargin{2};
-            listing = dir(fullfile(loadDir,sprintf('hfopt_%s_%d_*.mat',name,networknum)));
-            if (length(listing)==0)
-                error('file not found');
-            else
-                thisFile = listing(1).name;
-            end;
-        end;
-        load(fullfile(loadDir,thisFile),'net','simparams')
-        disp(['Loaded: ' thisFile])
-        varargout={net,simparams};
     case 'Plot_Learningcurve'
         networks = {'GaussianNoRep1','GaussianNoRep2','GaussianTest'};
         vararginoptions(varargin,{'networks'});
