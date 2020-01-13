@@ -28,10 +28,9 @@ switch(what)
         % Plotting function during training
         simparams.plotfun = @ContTask_hfopt_Plot;
         
-        simparams.numTrials = 20;       % Number of Episodes to simulation
+        simparams.numEpisodes = 20;       % Number of Episodes to simulation
         simparams.numTargets = 15;      % Number of elements in the sequence
         simparams.targetset = [1:3];    % What are the possible targets?
-        % Timing 
         simparams.preTime = 10; % Time before visual cues
         simparams.cueDur = 10; % How long is each cue on?
         simparams.cue2go = [10 40];  % Range of cue-2-go period 
