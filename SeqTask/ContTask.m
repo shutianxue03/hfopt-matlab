@@ -2,11 +2,12 @@ function varargout=ContTask(what,varargin)
 % Different functions for the evaluation of
 % Different neuronal networks
 baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
+baseDir = '/home/ROBARTS/jdiedrichsen/tsclient/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence/';
 
 switch(what)
     case 'Run_all'
         % Train a network
-        simparams=ContTask('Get_simparamsTrain','Cont_M1'); % Get parameters
+        simparams=ContTask('Get_simparamsTrain','Cont_M3'); % Get parameters
         SeqTask('trainNetwork',simparams); % Train a network
         simparams=SeqTask('Get_simparamsTrain','Gaussian3Flex'); % Get parameters
         SeqTask('trainNetwork',simparams); % Train a network
