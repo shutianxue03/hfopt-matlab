@@ -2,7 +2,7 @@ function varargout=ContTask(what,varargin)
 % Different functions for the evaluation of
 % Different neuronal networks
 baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
-baseDir = '/home/ROBARTS/jdiedrichsen/tsclient/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence/';
+% baseDir = '/home/ROBARTS/jdiedrichsen/tsclient/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence/';
 
 switch(what)
     case 'Run_all'
@@ -13,11 +13,12 @@ switch(what)
         SeqTask('trainNetwork',simparams); % Train a network
         
         % Now test it on single trials
-        simparams=ContTask('Get_simparamsTest','memorySpan',1);
+        simparams=ContTask('Get_simparamsTest','memorySpan',2);
         [D,v_inputtrain_T,m_targettrain_T]=ContTask('Get_testEpisodes',simparams);
-        net = SeqTask('Get_network','Cont_M1');
+        net = SeqTask('Get_network','Cont_M2');
         data = SeqTask('Run_simulation',net,v_inputtrain_T); % Run the simulation of the current network
         data = SeqTask('supplement_data',data,D,net);
+        save Cont_M2_2 D data v_inputtrain_T m_targettrain_T net simparams
     case 'Get_simparamsTrain'
         simparams.name = varargin{1};
         % How often to save a checkpoint of training
@@ -110,7 +111,10 @@ switch(what)
         for i=1:simparams.memorySpan
             D.target(D.targetNum==3+i) = TARGS(:,i); % Fill in targets 
         end; 
-        
+        D.prev = [NaN;D.target(1:end-1)]; 
+        D.prev(D.targetNum==1)=NaN; 
+        D.next= [D.target(2:end);NaN]; 
+        D.next(D.targetNum==simparams.numTargets)=NaN; 
         [v_inputtrain_T,D]=ContTask_taskfun_inputs(D,simparams);
         m_targettrain_T=ContTask_taskfun_outputs(D,simparams);
         varargout={D,v_inputtrain_T,m_targettrain_T};
@@ -183,13 +187,14 @@ switch(what)
         data = varargin{2};
         stats = 'G'; % 'D','G' Distance or second moment?
         type = 1; % 1:latent firing, 3: output firing, 5: latent activity
-        timepoints = [2:10:250]; % What timepoints in the simulation
+        timepoints = []; % What timepoints in the simulation
         units = [];
         cscale  = [0 10];
         doplot = 1;
         vararginoptions(varargin(3:end),{'stats','type','timepoints',...
             'cscale','doplot','units'});
         
+   
         % Get data
         K = size(D.episode,1);
         H = eye(K)-ones(K)/K;
@@ -216,7 +221,7 @@ switch(what)
                 subplot(5,5,i);
                 imagesc(G(:,:,i),cscale);
                 title(sprintf('%d',timepoints(i)));
-                lineP=find(diff(D.targs(:,1))); %
+                lineP=find(diff(D.target(:,1))); %
                 drawline(lineP+0.5,'dir','vert');
                 drawline(lineP+0.5,'dir','horz');
             end;
@@ -224,12 +229,12 @@ switch(what)
         varargout={G};
     case 'RDM_models'
         D=varargin{1};
-        features ={'fingers','transitions'}; % Combination of 'fingers','transitions','sequence'
+        features ={'target','prev','next','prevT','nextT'}; % Combination of 'fingers','transitions','sequence'
         K = size(D.episode,1);
         H = eye(K)-ones(K)/K;
         C=indicatorMatrix('allpairs',[1:K]);
         stats = 'G'; % 'D' or 'G'
-        vararginoptions(varargin(3:end),{'stats','features'});
+        vararginoptions(varargin(2:end),{'stats','features'});
         cmap= [1 0 0;0.3 0 0.3;0 0 1;0 1 1;0 0.4 0;0.5 0.5 0.5];
         
         G=[];
@@ -239,51 +244,44 @@ switch(what)
         j=1;
         for i=1:length(features)
             switch(features{i})
-                case 'fingers'
-                    for f=1:5
-                        Z{j}=indicatorMatrix('identity',D.targs(:,f));
-                        CAT.color{j}=cmap(f,:);
-                        CAT.linestyle{j}='-' ;
-                        CAT.leg{j}=sprintf('f%d',f);
-                        j=j+1;
-                    end
-                case 'transitions'
-                    for f=1:4
-                        trans=[D.targs(:,f) D.targs(:,f+1)];
-                        [~,~,transID]=unique(trans,'rows');
-                        Z{j}=indicatorMatrix('identity',transID);
-                        CAT.color{j}=cmap(f,:);
-                        CAT.linestyle{j}='--' ;
-                        CAT.leg{j}=sprintf('t%d',f);
-                        j=j+1;
-                    end
-                case 'endSeq'
-                    for f=1:4
-                        trans=D.targs(:,f+1:5);
-                        [~,~,transID]=unique(trans,'rows');
-                        Z{j}=indicatorMatrix('identity',transID);
-                        CAT.color{j}=cmap(f,:);
-                        CAT.linestyle{j}='--' ;
-                        CAT.leg{j}=sprintf('t%d',f);
-                        j=j+1;
-                    end
-                case 'startSeq'
-                    for f=1:4
-                        trans=D.targs(:,1:f);
-                        [~,~,transID]=unique(trans,'rows');
-                        Z{j}=indicatorMatrix('identity',transID);
-                        CAT.color{j}=cmap(f,:);
-                        CAT.linestyle{j}='--' ;
-                        CAT.leg{j}=sprintf('t%d',f);
-                        j=j+1;
-                    end
-                case 'sequence'
-                    Z{j}=eye(K);
-                    CAT.color{j}=cmap(6,:);
-                    CAT.linestyle{j}=':' ;
-                    CAT.leg{j}='seq';
+                case 'target'
+                    Z{j}=indicatorMatrix('identity',D.target);
+                    CAT.color{j}=[0 0 0];
+                    CAT.linestyle{j}='-' ;
+                    CAT.leg{j}='Target';
                     j=j+1;
+                case 'prev'
+                    Z{j}=indicatorMatrix('identity',D.prev);
+                    CAT.color{j}=[1 0 0];
+                    CAT.linestyle{j}='-' ;
+                    CAT.leg{j}='Previous';
+                    j=j+1;
+                case 'next'
+                    Z{j}=indicatorMatrix('identity',D.next);
+                    CAT.color{j}=[0 0 1];
+                    CAT.linestyle{j}='-' ;
+                    CAT.leg{j}='Next';
+                    j=j+1;
+                case 'prevT'
+                    trans=[D.prev D.target];
+                    [~,~,transID]=unique(trans,'rows');
+                    Z{j}=indicatorMatrix('identity',transID);
+                    CAT.color{j}=[1 0 0];
+                    CAT.linestyle{j}='--' ;
+                    CAT.leg{j}='Prev Trans';
+                    j=j+1;
+                case 'nextT'
+                    trans=[D.target D.next];
+                    [~,~,transID]=unique(trans,'rows');
+                    Z{j}=indicatorMatrix('identity',transID);
+                    CAT.color{j}=[0 0 1];
+                    CAT.linestyle{j}='--';
+                    CAT.leg{j}='Next Trans';
+                    j=j+1;
+                otherwise 
+                    error('unknown model'); 
             end
+            fprintf('%s\n',features{i}); 
         end
         for i=1:length(Z)
             switch(stats)
@@ -297,27 +295,35 @@ switch(what)
             end;
             subplot(ceil(length(Z)/5),5,i);
             imagesc(G(:,:,i));
-            lineP=find(diff(D.targs(:,1))); %
+            lineP=find(diff(D.target)); %
             drawline(lineP+0.5,'dir','vert');
             drawline(lineP+0.5,'dir','horz');
         end;
-        varargout={G,CAT};
+        varargout={G,CAT,Z};
     case 'RDM_regression'
         % Color maps for fingers
         type = 1; % 1:latent firing, 3: output firing, 5: latent activity
-        timepoints = [5:2:250];
-        features={'fingers'};
+        features ={'target','prev','next','prevT','nextT'}; % Combination of 'fingers','transitions','sequence'
         normalize=0;
         units=[];
-        vararginoptions(varargin(3:end),{'type','features','timepoints',...
-            'normalize','units'});
-        
+        target = 4; 
+        timepoints = []; 
         D=varargin{1};
         data=varargin{2};
-        Gemp = SeqTask('RDM_dynamics',D,data,'stats','G','type',type,...
+
+        vararginoptions(varargin(3:end),{'type','features','target',...
+            'normalize','units','timepoints'});
+        
+        % Concentrate on one target and specific times 
+        D=getrow(D,D.targetNum==target); 
+        if (isempty(timepoints)); 
+            timepoints=[D.goOnset(1)-10:5:D.end(1)];
+        end; 
+
+        Gemp = ContTask('RDM_dynamics',D,data,'stats','G','type',type,...
             'timepoints',timepoints,'units',units,'doplot',0);
         figure(1);
-        [Gmod,CAT] = SeqTask('RDM_models',D,data,'stats','G','features',features);
+        [Gmod,CAT] = ContTask('RDM_models',D,'stats','G','features',features);
         for i=1:size(Gmod,3)
             x=Gmod(:,:,i);
             X(:,i)=x(:);
@@ -353,7 +359,7 @@ switch(what)
             plot(timepoints,FSS,'Color',[1 0 0],'LineWidth',1,'LineStyle',':');
             plot(timepoints,tss,'Color',[0 0 0],'LineWidth',1,'LineStyle',':');
         end;
-        drawline([D.cue(1,:) D.gocue(1,:) mean(D.pressMax)]);
+        drawline([D.goOnset(1) D.peakPress(1) D.endPress(1)]);
         hold off;
         set(gca,'XLim',[min(timepoints) max(timepoints)]);
         legend(graphEl,CAT.leg);
@@ -376,7 +382,7 @@ switch(what)
         cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0];
         
         % Set the time symbols
-        stampTime = [D.cueOnset D.goOnset D.peakPress];
+        stampTime = [D.cueOnset D.goOnset D.peakPress]-1;
         stampSymbol = {'+','o','x'};
         stampName = {'cue','go','press'};
         
@@ -407,11 +413,83 @@ switch(what)
             plot3(pc(1,:,cond), pc(2,:,cond), pc(3,:,cond), 'Color', 'k');
             hold on;
             % Generate the stamp symbols
-            DD=getrow(D,D.episode==cond); 
+            stamps=stampTime(D.episode==cond,:); 
             plot3(pc(1,1,cond), pc(2,1,cond), pc(3,1,cond), '^', 'Color', 'k', 'MarkerSize', 5);
-            plot3(pc(1,DD.cueOnset,cond), pc(2,DD.cueOnset-1,cond), pc(3,DD.cueOnset,cond), stampSymbol{1}, 'Color', 'k', 'MarkerSize', 5);
-            plot3(pc(1,DD.goOnset,cond), pc(2,DD.goOnset-1,cond), pc(3,DD.goOnset,cond), stampSymbol{2}, 'Color', 'k', 'MarkerSize', 5);
-            plot3(pc(1,DD.peakPress,cond), pc(2,DD.peakPress-1,cond), pc(3,DD.peakPress,cond), stampSymbol{3}, 'Color', 'k', 'MarkerSize', 5);
+            for i=1:3 
+                plot3(pc(1,stamps(:,i),cond), pc(2,stamps(:,i),cond), pc(3,stamps(:,i),cond), stampSymbol{i}, 'Color', 'k', 'MarkerSize', 5);
+            end; 
+        end
+        hold off;
+    case 'State_Space_subspace' 
+        % Decomposes the data around a specific time range based on 
+        % on the specific RDM models, defined by a specific time point 
+        D=varargin{1};
+        data = varargin{2};
+        timeRange = []; 
+        target = 4; 
+        K= max(D.episode);
+        [numUnits,T]= size(data{1}{1});
+        units = [1:numUnits];
+        type =1; % 1: activity 3:output 5:
+        dimensions = 3;
+        subFeature = {'next','target'}; % Features that define the subspace 
+        subTimestamp = [1 2];  
+        vararginoptions(varargin(3:end),{'type','timeRange','units'});
+
+        numSubS = length(subFeatures); % Number of subfeatures 
+
+        % Concentrate on one target and specific times 
+        D=getrow(D,D.targetNum==target); 
+        if (isempty(timeRange)) 
+            timeRange=[D.goOnset(1)-10:1:D.end(1)];
+        end 
+
+        [Gmod,CAT,F] = ContTask('RDM_models',D,'stats','G','features',subFeature);
+        % Color maps for fingers
+        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0];
+        
+        % Set the time symbols
+        stampTime = [D.goOnset D.peakPress]-timeRange(1);
+        stampSymbol = {'+','o'};
+        stampName = {'cue','go'};
+        
+        % Condense data
+        for i=1:length(data)
+            if (type ==3 || type==6) 
+                Z(:,:,i) = data{i}{type};
+            else 
+                Z(:,:,i) = data{i}{type}(units,:);
+            end; 
+        end;
+        
+        % All Data 
+        pcData = Z(:,timeRange,:);
+        pcData = pcData(:,:)';
+        pcData = bsxfun(@minus,pcData,mean(pcData));
+        
+        % Determine subspaces on the feature / time frame that is important
+        for i=1:numSubS 
+            % Define contrast subspace 
+            F{i}=bsxfun(@minus,F{i},mean(F{i})); 
+            H = F{i}*pinv(F{i});  % Projection matrix 
+            Y = squeeze(Z(:,stampTime(subTimestamp(i)),:))'; 
+            [v,L]=eig(Y'*H'*H*Y); 
+            [l,j]   = sort(real(diag(L)),1,'descend');           % Sort the eigenvalues
+            V{i}       = v(:,j(1:dimensions)); 
+            score{i}       = pcData*V{i}; 
+            pc{i} = reshape(score{i}', [dimensions length(timeRange) K]);
+        
+            subplot(1,numSubS,i); 
+            for cond = 1:size(pc{i},3)
+                plot3(pc(1,:,cond), pc(2,:,cond), pc(3,:,cond), 'Color', 'k');
+                hold on;
+                % Generate the stamp symbols
+                stamps=stampTime(D.episode==cond,:); 
+                plot3(pc(1,1,cond), pc(2,1,cond), pc(3,1,cond), '^', 'Color', 'k', 'MarkerSize', 5);
+                for i=1:3 
+                    plot3(pc(1,stamps(:,i),cond), pc(2,stamps(:,i),cond), pc(3,stamps(:,i),cond), stampSymbol{i}, 'Color', 'k', 'MarkerSize', 5);
+                end
+            end
         end
         hold off;
     case 'Movement_data'
