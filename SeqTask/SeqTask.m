@@ -2,7 +2,7 @@ function varargout=SeqTask(what,varargin)
 % Different functions for the evaluation of
 % Different neuronal networks
 baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
-% baseDir = '/home/ROBARTS/jdiedrichsen/tsclient/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence/';
+baseDir = '/srv/diedrichsen/RNN_sequence'; 
 
 switch(what)
     case 'Run_all'
