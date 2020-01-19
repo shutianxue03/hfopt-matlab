@@ -13,12 +13,12 @@ switch(what)
         SeqTask('trainNetwork',simparams); % Train a network
         
         % Now test it on single trials
-        simparams=ContTask('Get_simparamsTest','memorySpan',2);
+        simparams=ContTask('Get_simparamsTest','memorySpan',3);
         [D,v_inputtrain_T,m_targettrain_T]=ContTask('Get_testEpisodes',simparams);
-        net = SeqTask('Get_network','Cont_M2');
+        net = SeqTask('Get_network','Cont_M3');
         data = SeqTask('Run_simulation',net,v_inputtrain_T); % Run the simulation of the current network
         data = SeqTask('supplement_data',data,D,net);
-        save Cont_M2_2 D data v_inputtrain_T m_targettrain_T net simparams
+        save Cont_M3_3 D data v_inputtrain_T m_targettrain_T net simparams
     case 'Get_simparamsTrain'
         simparams.name = varargin{1};
         % How often to save a checkpoint of training
@@ -262,6 +262,12 @@ switch(what)
                     CAT.linestyle{j}='-' ;
                     CAT.leg{j}='Next';
                     j=j+1;
+                case 'next2'
+                    Z{j}=indicatorMatrix('identity',D.memoryGo(:,3));
+                    CAT.color{j}=[0 0.5 0.5];
+                    CAT.linestyle{j}='-' ;
+                    CAT.leg{j}='Next2';
+                    j=j+1;
                 case 'prevT'
                     trans=[D.prev D.target];
                     [~,~,transID]=unique(trans,'rows');
@@ -281,7 +287,6 @@ switch(what)
                 otherwise 
                     error('unknown model'); 
             end
-            fprintf('%s\n',features{i}); 
         end
         for i=1:length(Z)
             switch(stats)
@@ -306,16 +311,16 @@ switch(what)
         features ={'target','prev','next','prevT','nextT'}; % Combination of 'fingers','transitions','sequence'
         normalize=0;
         units=[];
-        target = 4; 
+        targetNum = 4; 
         timepoints = []; 
         D=varargin{1};
         data=varargin{2};
 
-        vararginoptions(varargin(3:end),{'type','features','target',...
+        vararginoptions(varargin(3:end),{'type','features','targetNum',...
             'normalize','units','timepoints'});
         
         % Concentrate on one target and specific times 
-        D=getrow(D,D.targetNum==target); 
+        D=getrow(D,D.targetNum==targetNum); 
         if (isempty(timepoints)); 
             timepoints=[D.goOnset(1)-10:5:D.end(1)];
         end; 
@@ -379,7 +384,8 @@ switch(what)
         dimensions = 3;
         timeRange = [1:T];
         % Color maps for fingers
-        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0];
+        cmap= [1 0 0;0.7 0 0.7;0 0 0.7;0 0.8 0.8;0 0.3 0];
+
         
         % Set the time symbols
         stampTime = [D.cueOnset D.goOnset D.peakPress]-1;
@@ -426,39 +432,48 @@ switch(what)
         D=varargin{1};
         data = varargin{2};
         timeRange = []; 
-        target = 4; 
-        K= max(D.episode);
+        targetNum = 4; 
+        targets = [1:5]; 
         [numUnits,T]= size(data{1}{1});
         units = [1:numUnits];
         type =1; % 1: activity 3:output 5:
         dimensions = 3;
-        subFeature = {'next','target'}; % Features that define the subspace 
-        subTimestamp = [1 2];  
-        vararginoptions(varargin(3:end),{'type','timeRange','units'});
+        removeMean = 0; 
+        subFeature = {'next2','next','target'}; % Features that define the subspace 
+        subTimestamp = [1 1 2];  
+        vararginoptions(varargin(3:end),{'type','timeRange','units',...
+            'targetNum','targets','removeMean'});
 
-        numSubS = length(subFeatures); % Number of subfeatures 
+        numSubS = length(subFeature); % Number of subfeatures 
 
         % Concentrate on one target and specific times 
-        D=getrow(D,D.targetNum==target); 
+        D=getrow(D,D.targetNum==targetNum); 
+        
+        % Optional visualize a few targets only: 
+        indx = find(ismember(D.target,targets) & ismember(D.next,targets)); 
+        % indx = [1:length(D.target)]'; 
+        numCond = length(indx);
+        D=getrow(D,indx); 
+        
         if (isempty(timeRange)) 
-            timeRange=[D.goOnset(1)-10:1:D.end(1)];
+            timeRange=[D.goOnset(1)-10:1:D.end(1)-1];
         end 
 
         [Gmod,CAT,F] = ContTask('RDM_models',D,'stats','G','features',subFeature);
         % Color maps for fingers
-        cmap= [1 0 0;0.7 0 0.7;0 0 1;0 0.7 0.7;0 0.7 0];
+        cmap= [1 0 0;0.7 0 0.7;0 0 0.7;0 0.8 0.8;0 0.3 0];
         
         % Set the time symbols
-        stampTime = [D.goOnset D.peakPress]-timeRange(1);
+        stampTime = [D.goOnset(1) D.peakPress(1)-12];
         stampSymbol = {'+','o'};
         stampName = {'cue','go'};
         
         % Condense data
-        for i=1:length(data)
+        for i=1:length(indx)
             if (type ==3 || type==6) 
-                Z(:,:,i) = data{i}{type};
+                Z(:,:,i) = data{indx(i)}{type};
             else 
-                Z(:,:,i) = data{i}{type}(units,:);
+                Z(:,:,i) = data{indx(i)}{type}(units,:);
             end; 
         end;
         
@@ -470,28 +485,82 @@ switch(what)
         % Determine subspaces on the feature / time frame that is important
         for i=1:numSubS 
             % Define contrast subspace 
-            F{i}=bsxfun(@minus,F{i},mean(F{i})); 
-            H = F{i}*pinv(F{i});  % Projection matrix 
-            Y = squeeze(Z(:,stampTime(subTimestamp(i)),:))'; 
-            [v,L]=eig(Y'*H'*H*Y); 
+            if (removeMean) 
+                F{i}=bsxfun(@minus,F{i},mean(F{i}));
+            end; 
+            P = F{i}*pinv(F{i});  % Projection matrix 
+            Y = squeeze(Z(:,stampTime(subTimestamp(i))-1,:))'; 
+            % Check if RDM looks correct at this place 
+            % H=eye(25)-ones(25)/25; 
+            % imagesc(H*Y*Y'*H'); 
+            [v,L]=eig(Y'*P'*P*Y); 
             [l,j]   = sort(real(diag(L)),1,'descend');           % Sort the eigenvalues
             V{i}       = v(:,j(1:dimensions)); 
+            lambda{i}  = l(j(1:dimensions)); 
             score{i}       = pcData*V{i}; 
-            pc{i} = reshape(score{i}', [dimensions length(timeRange) K]);
+            pc{i} = reshape(score{i}', [dimensions length(timeRange) numCond]);
         
             subplot(1,numSubS,i); 
             for cond = 1:size(pc{i},3)
-                plot3(pc(1,:,cond), pc(2,:,cond), pc(3,:,cond), 'Color', 'k');
+                plot3(pc{i}(1,:,cond), pc{i}(2,:,cond), pc{i}(3,:,cond), 'Color', cmap(D.target(cond),:));
+                axis equal; 
                 hold on;
                 % Generate the stamp symbols
-                stamps=stampTime(D.episode==cond,:); 
-                plot3(pc(1,1,cond), pc(2,1,cond), pc(3,1,cond), '^', 'Color', 'k', 'MarkerSize', 5);
-                for i=1:3 
-                    plot3(pc(1,stamps(:,i),cond), pc(2,stamps(:,i),cond), pc(3,stamps(:,i),cond), stampSymbol{i}, 'Color', 'k', 'MarkerSize', 5);
+                stamps=stampTime-timeRange(1); 
+                plot3(pc{i}(1,1,cond), pc{i}(2,1,cond), pc{i}(3,1,cond), ...
+                    '^', 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
+                plot3(pc{i}(1,end,cond), pc{i}(2,end,cond), pc{i}(3,end,cond), ...
+                    'x', 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
+                for j=1:length(stamps) 
+                    plot3(pc{i}(1,stamps(j),cond), pc{i}(2,stamps(j),cond), pc{i}(3,stamps(j),cond), ...
+                        stampSymbol{j}, 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
                 end
             end
+            lims = axis; 
+            spacing=(lims(2)-lims(1))/8; 
+            set(gca,'XTick',[lims(1):spacing:lims(2)],'YTick',[lims(3):spacing:lims(4)],'ZTick',[lims(5):spacing:lims(6)]); 
+            set(gca,'XGrid','on','YGrid','on','ZGrid','on'); 
+            set(gca,'XTickLabel',{},'YTickLabel',{},'ZTickLabel',{}); 
+            xlabel('D1');ylabel('D2');zlabel('D3'); 
+            
         end
         hold off;
+        varargout={V,lambda,pc}; 
+    case 'subspaceAlignment' 
+        V=varargin{1}; 
+        lambda = varargin{2}; 
+        Vw=[]; 
+        for i=1:length(V)
+            Vw{i}=bsxfun(@times,V{i},sqrt(lambda{i}'));
+        end
+        for i=1:length(V)
+            for j=1:length(V)
+                C = (Vw{i}'*Vw{j}); 
+                HSIK(i,j)=sum(sum(C.^2)); 
+            end
+        end 
+        CKA = corrcov(HSIK);
+        keyboard; 
+            
+    case 'Figure_Sub' % Subspace Figure for the Grant 
+        load Cont_M2_2.mat; 
+        spacing=0.15; 
+        ContTask('State_Space_subspace',D,data,'targets',[1 2 5]); 
+        set(gcf,'PaperPosition',[2 2 8 3]);wysiwyg; 
+        subplot(1,2,1); 
+        view(100,10); 
+        axis equal; 
+        lims = axis; 
+        set(gca,'XTick',[lims(1):spacing:lims(2)],'YTick',[lims(3):spacing:lims(4)],'ZTick',[lims(5):spacing:lims(6)]); 
+        set(gca,'XGrid','on','YGrid','on','ZGrid','on'); 
+        set(gca,'XTickLabel',{},'YTickLabel',{},'ZTickLabel',{}); 
+        subplot(1,2,2);
+        view(-75,10); 
+        axis equal; 
+        lims = axis; 
+        set(gca,'XTick',[lims(1):spacing:lims(2)],'YTick',[lims(3):spacing:lims(4)],'ZTick',[lims(5):spacing:lims(6)]); 
+        set(gca,'XGrid','on','YGrid','on','ZGrid','on'); 
+        set(gca,'XTickLabel',{},'YTickLabel',{},'ZTickLabel',{}); 
     case 'Movement_data'
         % Analyze the state-space trajectories with peak forces
         D=varargin{1};
