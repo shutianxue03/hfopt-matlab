@@ -2,23 +2,23 @@ function varargout=ContTask(what,varargin)
 % Different functions for the evaluation of
 % Different neuronal networks
 baseDir = '/Users/jdiedrichsen/Dropbox (Diedrichsenlab)/projects/RNN_sequence';
-baseDir = '/srv/diedrichsen/RNN_sequence'; 
+% baseDir = '/srv/diedrichsen/RNN_sequence'; 
 
 switch(what)
     case 'Run_all'
         % Train a network
-        simparams=ContTask('Get_simparamsTrain','Cont_M3'); % Get parameters
+        simparams=ContTask('Get_simparamsTrain','Cont_M1rr'); % Get parameters
         SeqTask('trainNetwork',simparams); % Train a network
         simparams=SeqTask('Get_simparamsTrain','Gaussian3Flex'); % Get parameters
         SeqTask('trainNetwork',simparams); % Train a network
         
         % Now test it on single trials
-        simparams=ContTask('Get_simparamsTest','memorySpan',3);
+        simparams=ContTask('Get_simparamsTest','memorySpan',1);
         [D,v_inputtrain_T,m_targettrain_T]=ContTask('Get_testEpisodes',simparams);
-        net = SeqTask('Get_network','Cont_M3');
+        net = SeqTask('Get_network','Cont_M1b');
         data = SeqTask('Run_simulation',net,v_inputtrain_T); % Run the simulation of the current network
         data = SeqTask('supplement_data',data,D,net);
-        save Cont_M3_3 D data v_inputtrain_T m_targettrain_T net simparams
+        save Cont_M1b_1 D data v_inputtrain_T m_targettrain_T net simparams
     case 'Get_simparamsTrain'
         simparams.name = varargin{1};
         % How often to save a checkpoint of training
@@ -60,6 +60,7 @@ switch(what)
         
         switch (simparams.name)
             case 'Cont_M1'
+                
                 simparams.memorySpan = 1;
             case 'Cont_M2'
                 simparams.memorySpan = 2;
@@ -67,6 +68,16 @@ switch(what)
                 simparams.memorySpan = 3;
             case 'Cont_Mv'
                 simparams.memorySpan = [1 3];
+            case 'Cont_M1r'
+                simparams.wc = 10; % cost on square of input and output weights
+                simparams.firingrate = 0; % cost on firing rate
+                simparams.memorySpan = 1;
+            case 'Cont_M1rr'
+                simparams.wc = 1; % cost on square of input and output weights
+                simparams.firingrate = 1; % cost on firing rate
+                simparams.memorySpan = 1;
+
+        
         end
         varargout={simparams};
     case 'Get_simparamsTest'
@@ -324,7 +335,8 @@ switch(what)
         if (isempty(timepoints)); 
             timepoints=[D.goOnset(1)-10:5:D.end(1)];
         end; 
-
+    
+        
         Gemp = ContTask('RDM_dynamics',D,data,'stats','G','type',type,...
             'timepoints',timepoints,'units',units,'doplot',0);
         figure(1);
@@ -442,7 +454,7 @@ switch(what)
         subFeature = {'next2','next','target'}; % Features that define the subspace 
         subTimestamp = [1 1 2];  
         vararginoptions(varargin(3:end),{'type','timeRange','units',...
-            'targetNum','targets','removeMean'});
+            'targetNum','targets','removeMean','subFeature','subTimestamp'});
 
         numSubS = length(subFeature); % Number of subfeatures 
 
@@ -545,7 +557,10 @@ switch(what)
     case 'Figure_Sub' % Subspace Figure for the Grant 
         load Cont_M2_2.mat; 
         spacing=0.15; 
-        ContTask('State_Space_subspace',D,data,'targets',[1 2 5]); 
+        subFeature = {'next','target'}; % Features that define the subspace 
+        subTimestamp = [ 1 2];  
+        ContTask('State_Space_subspace',D,data,'targets',[1 2 5],...
+            'subFeature',subFeature,'subTimestamp',subTimestamp); 
         set(gcf,'PaperPosition',[2 2 8 3]);wysiwyg; 
         subplot(1,2,1); 
         view(100,10); 
