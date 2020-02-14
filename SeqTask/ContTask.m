@@ -443,6 +443,7 @@ switch(what)
         % on the specific RDM models, defined by a specific time point 
         D=varargin{1};
         data = varargin{2};
+        
         timeRange = []; 
         targetNum = 4; 
         targets = [1:5]; 
@@ -453,6 +454,8 @@ switch(what)
         removeMean = 0; 
         subFeature = {'next2','next','target'}; % Features that define the subspace 
         subTimestamp = [1 1 2];  
+        D.next2 = D.memoryGo(:,3);
+        
         vararginoptions(varargin(3:end),{'type','timeRange','units',...
             'targetNum','targets','removeMean','subFeature','subTimestamp'});
 
@@ -462,7 +465,12 @@ switch(what)
         D=getrow(D,D.targetNum==targetNum); 
         
         % Optional visualize a few targets only: 
-        indx = find(ismember(D.target,targets) & ismember(D.next,targets)); 
+        if (any(strcmp(subFeature,'next2')))
+            indx = find(ismember(D.target,targets) & ismember(D.next,targets) & ismember(D.next2,targets)); 
+        else
+            indx = find(ismember(D.target,targets) & ismember(D.next,targets) );        
+        end; 
+        
         % indx = [1:length(D.target)]'; 
         numCond = length(indx);
         D=getrow(D,indx); 
@@ -477,7 +485,7 @@ switch(what)
         
         % Set the time symbols
         stampTime = [D.goOnset(1) D.peakPress(1)-12];
-        stampSymbol = {'+','o'};
+        stampSymbol = {'^','o'};
         stampName = {'cue','go'};
         
         % Condense data
@@ -519,13 +527,13 @@ switch(what)
                 hold on;
                 % Generate the stamp symbols
                 stamps=stampTime-timeRange(1); 
-                plot3(pc{i}(1,1,cond), pc{i}(2,1,cond), pc{i}(3,1,cond), ...
-                    '^', 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
+                % plot3(pc{i}(1,1,cond), pc{i}(2,1,cond), pc{i}(3,1,cond), ...
+                %     '^', 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
                 plot3(pc{i}(1,end,cond), pc{i}(2,end,cond), pc{i}(3,end,cond), ...
                     'x', 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
                 for j=1:length(stamps) 
                     plot3(pc{i}(1,stamps(j),cond), pc{i}(2,stamps(j),cond), pc{i}(3,stamps(j),cond), ...
-                        stampSymbol{j}, 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
+                        stampSymbol{j}, 'Color', cmap(D.(subFeature{i})(cond),:), 'MarkerSize', 5);
                 end
             end
             lims = axis; 
