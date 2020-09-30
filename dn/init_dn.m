@@ -14,7 +14,7 @@ nlayers = length(layer_sizes)-1;	% the first layer size is the input.
 %assert ( nlayers > 1, 'More layers!' );
 
 wc_layer_fac = ones(1000,1);		% could break
-numconn = 15;
+numconn = Inf;
 
 % Layer by layer sparsity parameters
 beta = [];
@@ -44,21 +44,21 @@ for i = 1:nlayers
     npre = npres(i);
     npost = nposts(i);
     
-    W{i} = g(i) * randn(npost,npre)/sqrt(npre);
+  %  W{i} = g(i) * randn(npost,npre)/sqrt(npre);
     
-%     for j = 1:npost
-%         if isinf(numconn)
-%             idxs = 1:npre;
-%             W{i}(j,idxs) = (2.0*(rand(npre,1)-0.5)) * sqrt(6)/sqrt(npre+npost);
-%         else
-%             assert( false, 'Eat shit and die.');
-%             idxs = ceil(layer_sizes(i)*rand(1,numconn));
-%             W{i}(j,idxs) = randn(numconn,1);
-%         end
-%         n = norm(W{i}(j,:));
-%         W{i}(j,idxs) = W{i}(j,idxs) * g(i);
-%     end
-%     
+    for j = 1:npost
+        if isinf(numconn)
+            idxs = 1:npre;
+            W{i}(j,idxs) = (2.0*(rand(npre,1)-0.5)) * sqrt(6)/sqrt(npre+npost);
+        else
+            assert( false, 'Eat shit and die.');
+            idxs = ceil(layer_sizes(i)*rand(1,numconn));
+            W{i}(j,idxs) = randn(numconn,1);
+        end
+        n = norm(W{i}(j,:));
+        W{i}(j,idxs) = W{i}(j,idxs) * g(i);
+    end
+    
   
     layers(i).nPre = npre;
     layers(i).nPost = npost;
