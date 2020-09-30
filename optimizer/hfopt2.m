@@ -1502,16 +1502,16 @@ while go
     %         go = 0;
     %     end
     
-    for cond = 1:length(forward_pass_T)
-        data = forward_pass_T{cond};
-        vmask = ~isnan(m_targettrain_T{cond});
-        tempErr(cond) = sum(sum((m_targettrain_T{cond}(vmask) - data{3}(vmask)).^2));
-        tempTotal(cond) = sum(sum(m_targettrain_T{cond}(vmask).^2));
-    end
-    quit_err = tempErr ./ tempTotal;
-    if display_level > 0
-        disp(['Current error is: ' num2str(mean(quit_err))])
-    end
+%     for cond = 1:length(forward_pass_T)
+%         data = forward_pass_T{cond};
+%         vmask = ~isnan(m_targettrain_T{cond});
+%         tempErr(cond) = sum(sum((m_targettrain_T{cond}(vmask) - data{3}(vmask)).^2));
+%         tempTotal(cond) = sum(sum(m_targettrain_T{cond}(vmask).^2));
+%     end
+%     quit_err = tempErr ./ tempTotal;
+%     if display_level > 0
+%         disp(['Current error is: ' num2str(mean(quit_err))])
+%     end
     %  if (mean(quit_err) < err_tol) & (hf_iter >= min_iter)
     %      stop_string = 'Error is low enough!';
     %      exit_flag = 1;
