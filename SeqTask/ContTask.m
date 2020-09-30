@@ -128,8 +128,7 @@ switch(what)
         D.next(D.targetNum==simparams.numTargets)=NaN; 
         [v_inputtrain_T,D]=ContTask_taskfun_inputs(D,simparams);
         m_targettrain_T=ContTask_taskfun_outputs(D,simparams);
-        varargout={D,v_inputtrain_T,m_targettrain_T};
-        
+        varargout={D,v_inputtrain_T,m_targettrain_T};   
     case 'performance'
         % Rate performance and establish timing
         % D=SeqTask('performance',data,D);
@@ -443,6 +442,7 @@ switch(what)
         % on the specific RDM models, defined by a specific time point 
         D=varargin{1};
         data = varargin{2};
+        
         timeRange = []; 
         targetNum = 4; 
         targets = [1:5]; 
@@ -453,6 +453,8 @@ switch(what)
         removeMean = 0; 
         subFeature = {'next2','next','target'}; % Features that define the subspace 
         subTimestamp = [1 1 2];  
+        D.next2 = D.memoryGo(:,3);
+        
         vararginoptions(varargin(3:end),{'type','timeRange','units',...
             'targetNum','targets','removeMean','subFeature','subTimestamp'});
 
@@ -462,7 +464,12 @@ switch(what)
         D=getrow(D,D.targetNum==targetNum); 
         
         % Optional visualize a few targets only: 
-        indx = find(ismember(D.target,targets) & ismember(D.next,targets)); 
+        if (any(strcmp(subFeature,'next2')))
+            indx = find(ismember(D.target,targets) & ismember(D.next,targets) & ismember(D.next2,targets)); 
+        else
+            indx = find(ismember(D.target,targets) & ismember(D.next,targets) );        
+        end; 
+        
         % indx = [1:length(D.target)]'; 
         numCond = length(indx);
         D=getrow(D,indx); 
@@ -477,7 +484,7 @@ switch(what)
         
         % Set the time symbols
         stampTime = [D.goOnset(1) D.peakPress(1)-12];
-        stampSymbol = {'+','o'};
+        stampSymbol = {'^','o'};
         stampName = {'cue','go'};
         
         % Condense data
@@ -514,18 +521,18 @@ switch(what)
         
             subplot(1,numSubS,i); 
             for cond = 1:size(pc{i},3)
-                plot3(pc{i}(1,:,cond), pc{i}(2,:,cond), pc{i}(3,:,cond), 'Color', cmap(D.target(cond),:));
-                axis equal; 
+                plot3(pc{i}(1,:,cond), pc{i}(2,:,cond), pc{i}(3,:,cond), 'Color',  cmap(D.(subFeature{i})(cond),:));
+                % axis equal; 
                 hold on;
                 % Generate the stamp symbols
                 stamps=stampTime-timeRange(1); 
-                plot3(pc{i}(1,1,cond), pc{i}(2,1,cond), pc{i}(3,1,cond), ...
-                    '^', 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
+                % plot3(pc{i}(1,1,cond), pc{i}(2,1,cond), pc{i}(3,1,cond), ...
+                %     '^', 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
                 plot3(pc{i}(1,end,cond), pc{i}(2,end,cond), pc{i}(3,end,cond), ...
-                    'x', 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
+                    'x', 'Color',  cmap(D.(subFeature{i})(cond),:), 'MarkerSize', 5);
                 for j=1:length(stamps) 
                     plot3(pc{i}(1,stamps(j),cond), pc{i}(2,stamps(j),cond), pc{i}(3,stamps(j),cond), ...
-                        stampSymbol{j}, 'Color', cmap(D.target(cond),:), 'MarkerSize', 5);
+                        stampSymbol{j}, 'Color', cmap(D.(subFeature{i})(cond),:), 'MarkerSize', 5);
                 end
             end
             lims = axis; 
@@ -552,9 +559,8 @@ switch(what)
             end
         end 
         CKA = corrcov(HSIK);
-        keyboard; 
-            
-    case 'Figure_Sub' % Subspace Figure for the Grant 
+        keyboard;             
+    case 'Figure_Sub2' % Subspace Figure for the Grant 
         load Cont_M2_2.mat; 
         spacing=0.15; 
         subFeature = {'next','target'}; % Features that define the subspace 
@@ -576,6 +582,24 @@ switch(what)
         set(gca,'XTick',[lims(1):spacing:lims(2)],'YTick',[lims(3):spacing:lims(4)],'ZTick',[lims(5):spacing:lims(6)]); 
         set(gca,'XGrid','on','YGrid','on','ZGrid','on'); 
         set(gca,'XTickLabel',{},'YTickLabel',{},'ZTickLabel',{}); 
+    case 'Figure_Sub3' % Subspace Figure for the Grant 
+        load Cont_M3_3.mat; 
+        spacing=0.15; 
+        subFeature = {'next2','next','target'}; % Features that define the subspace 
+        subTimestamp = [1 1 2];  
+        ContTask('State_Space_subspace',D,data,'targets',[1 2 5],...
+            'subFeature',subFeature,'subTimestamp',subTimestamp,'removeMean',1); 
+        set(gcf,'PaperPosition',[2 2 12 4]);wysiwyg; 
+        views=[[-195 25];[-50 28];[125,23]]; 
+        for i=1:3 
+            subplot(1,3,i); 
+            view(views(i,1),views(i,2)); 
+            % axis equal; 
+            lims = axis; 
+            set(gca,'XTick',[lims(1):spacing:lims(2)],'YTick',[lims(3):spacing:lims(4)],'ZTick',[lims(5):spacing:lims(6)]); 
+            set(gca,'XGrid','on','YGrid','on','ZGrid','on'); 
+            set(gca,'XTickLabel',{},'YTickLabel',{},'ZTickLabel',{}); 
+        end 
     case 'Movement_data'
         % Analyze the state-space trajectories with peak forces
         D=varargin{1};
