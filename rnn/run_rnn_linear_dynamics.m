@@ -70,17 +70,34 @@ if isempty(A)
     if ( dt_o_tau < 1.0 )
         % This is what the jacobian of the implied continuous time system differential equation looks like.
         n_jac_n = -eye(N) + n_J_n .* nr_drfp_n;
-        
+
         if ~isempty(eigs_to_zero)
             [V,D] = eig(n_jac_n);
             d = diag(D);
-            [d, sidxs] = sort(real(d), 'descend');   % Sort by stability for continuous system.
-            V = V(:,sidxs);
-            dz = d;
-            dz(eigs_to_zero) = 0.0;
+            [~, sidxs] = sort(real(d), 'descend');   % Sort by stability for continuous system.
+            %V = V(:,sidxs);
+            %dz = d;
             
-            n_jac_n = real(V*diag(dz)*pinv(V));  % This real() may be necessary if someone zeros out only one CCP.
+            eigs_to_zero_ind = sidxs(eigs_to_zero);
+            
+            if eigs_to_zero_ind > 1
+                if real(d(eigs_to_zero_ind-1)) == real(d(eigs_to_zero_ind))
+                    eigs_to_zero_ind = [eigs_to_zero_ind eigs_to_zero_ind-1];
+                end
+            end
+            if eigs_to_zero_ind < length(d)
+                if real(d(eigs_to_zero_ind+1)) == real(d(eigs_to_zero_ind))
+                    eigs_to_zero_ind = [eigs_to_zero_ind eigs_to_zero_ind+1];
+                end
+            end
+            
+            %d(eigs_to_zero) = 0.0;
+            %V(:,eigs_to_zero) = 0;
+            d(eigs_to_zero_ind) = -1;
+            
+            n_jac_n = real(V*diag(d)*pinv(V));  % This real() may be necessary if someone zeros out only one CCP.
         end
+        
     else					% should this be the jacobian of the difference? -DCS:2011/10/27
         assert ( false, 'Not implemented yet.');
     end
