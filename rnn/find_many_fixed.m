@@ -97,7 +97,7 @@ parfor i = 1:niters
         if strcmp(display_commandline, 'on')
             disp( ['Starting: ' num2str(i) ' with random point having norm: ' num2str(norm(start_point))  '.']);
         end
-        fp_starts{i} = start_point;
+        fp_starts{i} = start_point; 
         [myfixed,fval, exitflag] = fminunc( @(x) find_one_fp(x, net, const_input, fval_tol, do_topo_map), start_point, optset);
         do_accept_opt_stop = false;
         switch exitflag
@@ -142,7 +142,7 @@ parfor i = 1:niters
         assert ( isreal(myfixed), 'Not real!');        
         fixed{i} = myfixed;
         fvals(i) = fval;
-        disp(fval)
+        %disp(fval)
         
         % Accept the fixed point if it's below the tolerance specified.  If one wants all local minima, then set dotopomap false and fval_tol high.
         if ( fval < fval_tol && do_accept_opt_stop )	            
@@ -201,7 +201,7 @@ parfor i = 1:niters
         end
     end
 end
-toc
+%toc
 
 fpd = zeros(niters,niters);
 for i = 1:niters
