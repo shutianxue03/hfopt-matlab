@@ -977,7 +977,7 @@ while go
             case 'random_rows'
                 forward_pass_s = forward_pass_T(random_trial_idxs);  % Now the full pass is guarenteed to be there.
             case 'random_blocks'  % Changing the meaning.               
-                nfp = length(forward_pass_T);
+                nfp = length(forward_pass_T);          
                 forward_pass_s = cell(size(forward_pass_T));
                 for stuffidx = 1:nfp
                     forward_pass_s{stuffidx} = forward_pass_T{stuffidx}(:,random_trial_idxs);
