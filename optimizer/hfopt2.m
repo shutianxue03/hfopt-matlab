@@ -1289,10 +1289,10 @@ while go
         dNet = cgood*good_cg_incr;
         if maintainDale        
             [n_Wru_vPrime, n_Wrr_nPrime, m_Wzr_nPrime, n_x0_cPrime, n_bx_1Prime, m_bz_1Prime] = unpackRNN(net, dNet);
-            [n_Wru_vOrig, n_Wrr_nOrig, m_Wzr_nOrig, ~, ~, ~] = unpackRNN(net, net.theta);
-            n_Wrr_nPrime(n_Wrr_nPrime+n_Wrr_nOrig > 0 ~= repmat(net.ident, [size(n_Wrr_nOrig,1) 1])) = 0;
-            %n_Wru_vPrime(n_Wru_vOrig == 0) = 0;
-            %m_Wzr_nPrime(m_Wzr_nOrig == 0) = 0;
+            [~, n_Wrr_nOrig, ~, ~, ~, ~] = unpackRNN(net, net.theta);
+            fullIdent = repmat(net.ident, [size(n_Wrr_nOrig,1) 1]);
+            identChange = fullIdent .* (n_Wrr_nOrig + n_Wrr_nPrime);
+            n_Wrr_nPrime(identChange < 0) = -n_Wrr_nOrig(identChange < 0) + 1e-15 * fullIdent(identChange < 0);
             dNet = packRNN(net, n_Wru_vPrime, n_Wrr_nPrime, m_Wzr_nPrime, n_x0_cPrime, n_bx_1Prime, m_bz_1Prime);
         end
         

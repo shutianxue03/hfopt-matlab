@@ -45,7 +45,8 @@ mu = 1.0;				% no idea what's reasonable for this value.
 nics = 1;				% number of initial conditions to learn, based on some type of external condition
 net_noise_sigma = 0.0;			% gaussian noise standard dev, multiplied by sqrt of dt, which for discrete models is 1
 bias_scale = 1.0;
-
+maintainDale = false;
+proportionExcitatory = 0.5;
 
 optargin = size(varargin,2);
 trans_fun_params = [];
@@ -87,7 +88,10 @@ for i = 1:2:optargin			% perhaps a params structure might be appropriate here.  
             
         case 'h'
             h = varargin{i+1};
-            
+        case 'maintainDale'
+            maintainDale = varargin{i+1};
+        case 'proportionExcitatory'
+            proportionExcitatory = varargin{i+1};
             
         otherwise
             assert( false, ['Don''t recognize ' varargin{i} '.']);
@@ -113,7 +117,7 @@ for i = 1:nlayers
     if i == 1
         W{i} = randn(npre,npost) * h(i) / sqrt(npre);
     elseif i == 2    
-         W{i} = zeros(npost,npre);
+        W{i} = zeros(npost,npre);
         for j = 1:npost
             if isinf(numconn)
                 W{i}(j,:) = randn(npre,1) * g(i) / sqrt(npre);
@@ -124,20 +128,27 @@ for i = 1:nlayers
             % n = norm(W{i}(j,:));
             % W{i}(j,idxs) = W{i}(j,idxs) * g(i) / n; % set exactly equal to g(i).  Is this even more stringent than setting the spectral radius? DCS 3/26/12
         end
+        if maintainDale
+            % give each unit an identity
+            net.ident = ones(1,npost);
+            net.ident(round(proportionExcitatory*npost)+1 : end) = -1;
+            W{i} = abs(W{i});
+            W{i} = W{i} .* repmat(net.ident, [npost 1]);
+        end
     else
         W{i} = zeros(npre,npost);
     end
-%     
-%     if i == 2  % For the recurrent network we'll set things exactly.  The above heuristic is OK for feed-forward connections, but let's be precise for J.
-%         D = eig(W{i});
-%         if dt_o_tau < 1.0
-%             norm_eig = max(max(real(D)));  % Good for continuous, not sure what this is called, but it still controls stable vs. unstable
-%         else
-%             norm_eig = max(max(abs(D)));   % Good for discrete, this is spectral radius
-%         end
-%         W{i} = W{i} / norm_eig * g(i);
-%         disp(['g/max(Re(eigs)): ' num2str(g(i)/norm_eig)]);  % This should always be close to 1 unless something is very wrong.
-%     end
+    
+    %if i == 2  % For the recurrent network we'll set things exactly.  The above heuristic is OK for feed-forward connections, but let's be precise for J.
+    %    D = eig(W{i});
+    %    if dt_o_tau < 1.0
+    %        norm_eig = max(max(real(D)));  % Good for continuous, not sure what this is called, but it still controls stable vs. unstable
+    %    else
+    %        norm_eig = max(max(abs(D)));   % Good for discrete, this is spectral radius
+    %    end
+    %    W{i} = W{i} / norm_eig * g(i);
+    %    disp(['g/max(Re(eigs)): ' num2str(g(i)/norm_eig)]);  % This should always be close to 1 unless something is very wrong.
+    %end
     
     layers(i).nPre = npre;
     layers(i).nPost = npost;
