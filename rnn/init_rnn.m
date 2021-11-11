@@ -130,10 +130,12 @@ for i = 1:nlayers
         end
         if maintainDale
             % give each unit an identity
-            net.ident = ones(1,npost);
-            net.ident(round(proportionExcitatory*npost)+1 : end) = -1;
+            net.ident = -ones(1,npost);
+            net.ident(randsample(npost, round(proportionExcitatory*npost))) = 1;
             W{i} = abs(W{i});
             W{i} = W{i} .* repmat(net.ident, [npost 1]);
+            W{i}(:,net.ident == 1) = W{i}(:,net.ident == 1) * ((1 - proportionExcitatory) / proportionExcitatory);
+            W{i}(:,net.ident == -1) = W{i}(:,net.ident == -1) * (proportionExcitatory / (1 - proportionExcitatory));
         end
     else
         W{i} = zeros(npre,npost);

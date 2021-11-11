@@ -1528,7 +1528,7 @@ while go
         go = 0;
     end
     
-    if ( objfun < objfun_min ) && (hf_iter >= min_iter) && (mean(quit_err) < err_tol)
+    if ( objfun < objfun_min ) && (hf_iter >= min_iter) %&& (mean(quit_err) < err_tol)
         stop_string = ['Stopping because objective function fell below: ' num2str(objfun_min)];
         exit_flag = -3;  % fminunc: Objective function at current iteration went below ObjectiveLimit.
         go = 0;
