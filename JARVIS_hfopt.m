@@ -10,7 +10,12 @@ close all
 %	•	Activation functions: tanh (1st hidden layer); linear (output layer)
 %	•	Training objective: Sum of squared errors (standard reconstruction loss).
 %	•	Some regularization: Small L2 penalty (weightcost = 1e-4) to prevent overfitting.
-	
+% 4. Train the RNN using Hessian-Free Optimization
+% 5. Evaluate the Trained RNN
+% 6. Visualize Filtering Results
+% 7. Apply RNN to the Full Original Dataset
+% 8. Save the Filtered Output
+
 %% Example code for non-linear filtering of continuous tracking data
 % This basic idea is that we use an RNN to auto-encode frame by frame tracking data,
 % while also trying to minimize deviations for data points that are not temporally smooth
