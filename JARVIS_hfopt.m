@@ -3,7 +3,14 @@ close all
 % Navigate to a folder containing the data3D.csv you want to filter
 
 % SX: Use a Recurrent Neural Network (RNN) to filter and smooth noisy 3D motion tracking data from a CSV file (data3D.csv).
-
+% 1. Load and Preprocess Data
+% 2. Create Training Data (Fake “Pseudo-Trials”)
+% 3. Build the RNN
+%	•	RNN structure: Input layer (size = number of features) + Two hidden layers: 40 units each + Output layer: size = number of features
+%	•	Activation functions: tanh (1st hidden layer); linear (output layer)
+%	•	Training objective: Sum of squared errors (standard reconstruction loss).
+%	•	Some regularization: Small L2 penalty (weightcost = 1e-4) to prevent overfitting.
+	
 %% Example code for non-linear filtering of continuous tracking data
 % This basic idea is that we use an RNN to auto-encode frame by frame tracking data,
 % while also trying to minimize deviations for data points that are not temporally smooth
